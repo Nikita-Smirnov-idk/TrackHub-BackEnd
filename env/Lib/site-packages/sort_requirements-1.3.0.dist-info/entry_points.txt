@@ -1,0 +1,3 @@
+[console_scripts]
+sort-requirements = sort_requirements.script:main
+
