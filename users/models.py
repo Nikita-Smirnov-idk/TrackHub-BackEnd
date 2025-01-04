@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import (AbstractBaseUser,
                                         BaseUserManager,
                                         PermissionsMixin)
+from django.core.validators import EmailValidator
+from users.validators import password_validator
+from django.contrib.postgres.indexes import GinIndex
 
 
 class CustomUserManager(BaseUserManager):
@@ -19,6 +22,7 @@ class CustomUserManager(BaseUserManager):
         else:
             # Отмечаем, что пароль нельзя использовать
             user.set_unusable_password()
+        user.full_clean()
         user.save(using=self._db)
         return user
 
@@ -38,21 +42,49 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model.
     """
-    email = models.EmailField(unique=True)
-    username = models.CharField(max_length=150, unique=True)
+    email = models.EmailField(unique=True, validators=[EmailValidator()])
+    password = models.CharField(max_length=128,
+                                validators=[password_validator])
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
+    is_public = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_trainer = models.BooleanField(default=False)  # Custom field
+    timezone = models.CharField(max_length=50, default='UTC')
 
     objects = CustomUserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=['first_name'],
+            ),
+            GinIndex(
+                fields=['last_name'],
+            ),
+        ]
+
     def __str__(self):
         return self.email
+
+    def save(self, *args, **kwargs):
+        # Сохраняем объект User
+        super().save(*args, **kwargs)
+
+        # Проверяем, есть ли связанные объекты (чтобы избежать дублирования)
+        if not hasattr(self, 'user_rating'):
+            RatingOfUser.objects.create(user=self)
+
+    def set_password(self, raw_password):
+        # Validate the password
+        password_validator(raw_password)
+
+        # Call the base method to hash the password
+        super().set_password(raw_password)
 
 
 class RatingOfUser(models.Model):
@@ -99,4 +131,5 @@ class Review(models.Model):
             user.user_rating.update_rating()  # Обновляем стаж
 
     def __str__(self):
-        return f"Review for {self.for_user.name} by {self.user.name}"
+        return f"Review for {self.for_user.first_name}" + \
+               f" by {self.user.first_name}"

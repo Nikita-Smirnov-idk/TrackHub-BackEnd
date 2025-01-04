@@ -4,8 +4,14 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 from django.urls import path
-from users.views import CustomUserRegisterView, AccountDeletionView, LogoutView
-from rest_framework.authtoken.views import obtain_auth_token
+from users.views import (
+                            CustomUserRegisterView,
+                            AccountDeletionView,
+                            LogoutView,
+                            ReviewView,
+                            LoginView,
+                            ProfileView,
+                        )
 
 urlpatterns = [
     # Эндпоинт для получения токена
@@ -17,7 +23,10 @@ urlpatterns = [
     path("register/", CustomUserRegisterView.as_view(), name="register"),
     path('delete-account/',
          AccountDeletionView.as_view(),
-         name='account-deletion'),
+         name='account_deletion'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('login/', obtain_auth_token, name='login'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('reviews/', ReviewView.as_view(), name='review'),
+    path('reviews/<int:pk>/', ReviewView.as_view(), name='review_detail'),
+    path('profile/<int:pk>/', ProfileView.as_view(), name='profile'),
 ]
