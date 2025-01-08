@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import (
                                                              BlacklistedToken,
                                                             )
+from users.models import Review, RatingOfUser
 
 
 class UserCreationTestCase(TestCase):
@@ -269,26 +270,32 @@ class RegisterViewTests(APITestCase):
 
     def test_account_register_with_valid_data(self):
         """
-        Тестирует удаление аккаунта и добавление токена в черный список.
+        Тестирует регистрацию с валидными данными.
         """
-        # Отправляем запрос на удаление аккаунта
+        # Отправляем запрос на создание аккаунта
         response = self.client.post(self.register_url,
                                     self.valid_data)
 
-        # Проверяем, что пользователь был успешно удален
+        # Проверяем, что пользователь был успешно создан
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(get_user_model().objects.
                              get(email=self.valid_data['email']))
+        self.assertIsNotNone(
+            get_user_model().objects.filter(email=self.valid_data['email']).first().trainer
+        )
+        self.assertIsNotNone(
+            get_user_model().objects.filter(email=self.valid_data['email']).first().client
+        )
 
     def test_account_register_with_invalid_password_data(self):
         """
-        Тестирует удаление аккаунта и добавление токена в черный список.
+        Тестирует регистрацию с невалидными данными.
         """
-        # Отправляем запрос на удаление аккаунта
+        # Отправляем запрос на создание аккаунта
         response = self.client.post(self.register_url,
                                     self.invalid_password_data)
 
-        # Проверяем, что пользователь был успешно удален
+        # Проверяем, что пользователь был успешно создан
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(
             get_user_model().
@@ -298,13 +305,13 @@ class RegisterViewTests(APITestCase):
 
     def test_account_register_with_invalid_email_data(self):
         """
-        Тестирует удаление аккаунта и добавление токена в черный список.
+        Тестирует регистрацию с невалидным имейлом.
         """
-        # Отправляем запрос на удаление аккаунта
+        # Отправляем запрос на создание аккаунта
         response = self.client.post(self.register_url,
                                     self.invalid_email_data)
 
-        # Проверяем, что пользователь был успешно удален
+        # Проверяем, что пользователь был успешно создан
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(
             get_user_model().
@@ -395,61 +402,95 @@ class LoginTests(APITestCase):
         self.assertIn("refresh", response.data)
 
 
-class ReviewCreationTestCase(TestCase):
+class ReviewCreationTestCase(APITestCase):
     def setUp(self):
         self.User = get_user_model()
-        self.create_url = reverse("review")
-
-    def test_create_user(self):
-        user_1 = self.User.objects.create_user(
+        self.user_1 = self.User.objects.create_user(
             email='testuser1@example.com',
             password='Securepassword123',
             first_name='testuser1',
             is_trainer=False,
         )
-        user_2 = self.User.objects.create_user(
+        self.user_2 = self.User.objects.create_user(
             email='testuser2@example.com',
             password='Securepassword123',
             first_name='testuser2',
             is_trainer=False,
         )
-
-        review = user_1.reviews.create(for_user=user_2,
-                                       rating=5,
-                                       review_text='Great trainer!')
-        self.assertEqual(review.for_user, user_2)
-        self.assertEqual(review.rating, 5)
-        self.assertEqual(review.review_text, 'Great trainer!')
-        self.assertIsNotNone(review.date)
-
-
-class ReviewTestCase(APITestCase):
-    def setUp(self):
-        self.user = get_user_model()
         self.create_url = reverse("review")
         self.detail_review_url = "review_detail"
-        self.user_1 = self.user.objects.create_user(
-            email='testuser1@example.com',
-            password='Securepassword123',
-            first_name='testuser1',
-            is_trainer=False,
-        )
-        self.user_2 = self.user.objects.create_user(
-            email='testuser2@example.com',
-            password='Securepassword123',
-            first_name='testuser2',
-            is_trainer=False,
-        )
-        self.client.force_authenticate(user=self.user_2)
 
-    def test_create_user_with_invalid_data(self):
+    def test_create_review(self):
+        self.client.force_authenticate(user=self.user_1)
+
+        response = self.client.post(self.create_url,
+                                    data={'user': self.user_1.pk,
+                                          'for_user': self.user_2.pk,
+                                          'rating': 5,
+                                          'review_text': 'Great trainer!'})
+        self.user_1.refresh_from_db()
+        self.user_2.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.assertEqual(self.user_2.received_reviews.first().rating, 5)
+        self.assertEqual(self.user_1.reviews.first().rating, 5)
+        self.assertEqual(
+            self.user_2.received_reviews.first().review_text,
+            'Great trainer!'
+            )
+        self.assertEqual(
+            self.user_1.reviews.first().review_text,
+            'Great trainer!'
+        )
+
+    def test_create_review_same_user_and_for_user(self):
+        self.client.force_authenticate(user=self.user_1)
+
+        response = self.client.post(self.create_url,
+                                    data={'user': self.user_1.pk,
+                                          'for_user': self.user_2.pk,
+                                          'rating': 5,
+                                          'review_text': 'Great trainer!'})
+        self.user_1.refresh_from_db()
+        self.user_2.refresh_from_db()
+
+        response = self.client.post(self.create_url,
+                                    data={'user': self.user_1.pk,
+                                          'for_user': self.user_2.pk,
+                                          'rating': 3,
+                                          'review_text': 'Bad trainer!'})
+        self.user_1.refresh_from_db()
+        self.user_2.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_review_with_invalid_data(self):
+        self.client.force_authenticate(user=self.user_2)
+        response = self.client.post(self.create_url,
+                                    data={'for_user': self.user_1.pk,
+                                          'review_text': 'Great trainer!',
+                                          'user': self.user_2.pk},)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_url(self):
+        self.client.force_authenticate(user=self.user_1)
+
+        response = self.client.post(reverse(self.detail_review_url,
+                                            args=[1]),
+                                    data={'user': self.user_1.pk,
+                                          'for_user': self.user_2.pk,
+                                          'rating': 5,
+                                          'review_text': 'Great trainer!'})
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_create_review_unauthorized(self):
         response = self.client.post(self.create_url,
                                     data={'for_user': self.user_1,
                                           'review_text': 'Great trainer!',
                                           'user': self.user_2},)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_change_review(self):
+        self.client.force_authenticate(user=self.user_2)
         review = self.user_2.reviews.create(for_user=self.user_1,
                                             rating=5,
                                             review_text='Great trainer!')
@@ -460,7 +501,6 @@ class ReviewTestCase(APITestCase):
         response = self.client.put(reverse(self.detail_review_url,
                                            args=[review.id]),
                                    data=review2,)
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(review2['rating'],
                          self.user_2.reviews.get(id=review.id).rating)

@@ -28,11 +28,15 @@ class TrainerCategory(models.Model):
 
 
 class Trainer(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='trainer')
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='trainer'
+    )
     description = models.CharField(max_length=500, blank=True)
     address = models.CharField(max_length=255, blank=True)  # Адрес зала
-    is_public = models.BooleanField(default=True)
-    is_active = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
     is_male = models.BooleanField(default=True)
     price_per_hour = models.PositiveIntegerField(default=0)
     minimum_workout_duration = models.PositiveIntegerField(default=60)
@@ -46,7 +50,8 @@ class Trainer(models.Model):
     holidays = models.ManyToManyField('Holiday',
                                       blank=True,)
     trainer_categories = models.ManyToManyField(CategoryOfTrainers,
-                                                through='TrainerCategory')
+                                                through='TrainerCategory',
+                                                blank=True)
 
     class Meta:
         indexes = [
@@ -56,10 +61,15 @@ class Trainer(models.Model):
         ]
 
     def __str__(self):
-        return f"Trainer: {self.user.name} " + \
-            f"{self.user.surname} ({self.address})"
+        return f"Trainer: {self.user.first_name} " + \
+            f"{self.user.last_name} ({self.address})"
 
     def save(self, *args, **kwargs):
+        if not self._state.adding:
+            previous = Trainer.objects.get(pk=self.pk)
+            if previous.is_active != self.is_active and not self.is_active:
+                self.is_public = False
+
         # Сохраняем объект Trainer
         super().save(*args, **kwargs)
 
@@ -72,8 +82,10 @@ class Exercise(models.Model):
     name = models.CharField(max_length=255)
     description = models.CharField(max_length=250, blank=True, null=True)
     # Категория упражнения
-    muscle_group_category = models.ForeignKey('MuscleGroupCategory',
-                                              on_delete=models.CASCADE)
+    category = models.ForeignKey('ExerciseCategory',
+                                 on_delete=models.CASCADE,
+                                 related_name='exercises')
+
     # Упражнение доступно для всех
     is_public = models.BooleanField(default=True)
 
@@ -148,13 +160,14 @@ class WorkoutExercise(models.Model):
 
 
 class WeekDay(models.Model):
-    name = models.CharField(max_length=50, unique=True)  # Пн, Вт, Ср, Чт, Пт, Сб, Вс
+    # Пн, Вт, Ср, Чт, Пт, Сб, Вс
+    name = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
         return self.name
 
 
-class MuscleGroupCategory(models.Model):
+class ExerciseCategory(models.Model):
     name = models.CharField(max_length=50)
 
     def __str__(self):
@@ -164,6 +177,14 @@ class MuscleGroupCategory(models.Model):
 class TrainerWeekend(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     weekday = models.ForeignKey(WeekDay, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+                models.UniqueConstraint(
+                    fields=['trainer', 'weekday'],
+                    name='unique_trainer_weekday'
+                )
+            ]
 
     def __str__(self):
         return f"{self.trainer} has weekend on {self.weekday.name}"
@@ -178,12 +199,14 @@ class Break(models.Model):
 
 
 class WorkHours(models.Model):
-    trainer = models.OneToOneField('Trainer', on_delete=models.CASCADE)
+    trainer = models.OneToOneField('Trainer',
+                                   on_delete=models.CASCADE,
+                                   related_name='workhours')
     start_time = models.TimeField()
     end_time = models.TimeField()
 
     def __str__(self):
-        return f"Work hours: {self.start} - {self.end}"
+        return f"Work hours: {self.start_time} - {self.end_time}"
 
 
 class Holiday(models.Model):
@@ -192,7 +215,7 @@ class Holiday(models.Model):
 
     def __str__(self):
 
-        return f"Holiday from {self.start} to {self.end}"
+        return f"Holiday from {self.start_date} to {self.end_date}"
 
 
 class Experience(models.Model):

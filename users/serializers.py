@@ -8,7 +8,14 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['first_name', 'last_name', 'email', 'password', 'is_trainer']
+        fields = [
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'password',
+            'is_trainer'
+        ]
 
     def validate(self, data):
         request_method = self.context.get('request').method
@@ -25,14 +32,44 @@ class CustomUserSerializer(serializers.ModelSerializer):
         return super().validate(data)
 
 
-class RatingOfUserSerializer(serializers.ModelSerializer):
+class CustomUserGetSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = RatingOfUser
-        fields = ['user', 'rating', 'is_rating_active']
+        model = CustomUser
+        fields = [
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'is_trainer',
+            'user_rating'
+        ]
+
+
+# class RatingOfUserSerializer(serializers.ModelSerializer):
+#     user = serializers.PrimaryKeyRelatedField(
+#         queryset=CustomUser.objects.all()
+#     )
+
+#     class Meta:
+#         model = RatingOfUser
+#         fields = ['user', 'rating', 'is_rating_active']
+
+#     def validate(self, data):
+#         if 'user' in data and RatingOfUser.objects.filter(
+#             trainer=data['user']
+#         ).exists():
+#             raise serializers.ValidationError("RatingOfUser already exists.")
+#         return super().validate(data)
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all()
+    )
+    for_user = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all()
+    )
 
     class Meta:
         model = Review

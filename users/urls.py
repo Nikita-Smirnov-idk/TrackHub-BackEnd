@@ -9,6 +9,7 @@ from users.views import (
                             AccountDeletionView,
                             LogoutView,
                             ReviewView,
+                            ReviewWithPkView,
                             LoginView,
                             ProfileView,
                         )
@@ -27,6 +28,6 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('login/', LoginView.as_view(), name='login'),
     path('reviews/', ReviewView.as_view(), name='review'),
-    path('reviews/<int:pk>/', ReviewView.as_view(), name='review_detail'),
+    path('reviews/<int:pk>/', ReviewWithPkView.as_view(), name='review_detail'),
     path('profile/<int:pk>/', ProfileView.as_view(), name='profile'),
 ]

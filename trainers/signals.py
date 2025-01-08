@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from trainers.models import WeekDay
 from trainers.apps import TrainersConfig
 
+
 @receiver(post_migrate)
 def create_days_of_week(sender, **kwargs):
     # Проверяем, чтобы сигнал срабатывал только для нашего приложения

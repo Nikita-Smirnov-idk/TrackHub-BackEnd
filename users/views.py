@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from users.serializers import (
+                                CustomUserGetSerializer,
                                 CustomUserSerializer,
                                 ReviewSerializer,
                             )
@@ -23,7 +24,7 @@ class CustomUserRegisterView(APIView):
                                           context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            return Response({'message': 'User created successfully'},
+            return Response(serializer.data,
                             status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -131,7 +132,7 @@ class ProfileView(APIView):
         return [JWTAuthentication()]
 
     def put(self, request, pk):
-        if request.user.id != pk:
+        if not (request.user.is_authenticated and request.user.id == pk):
             return Response(
                 {"detail": "You are not authorized to edit this profile."},
                 status=status.HTTP_403_FORBIDDEN
@@ -151,8 +152,6 @@ class ProfileView(APIView):
 
     def get(self, request, pk):
         try:
-            # Assuming the profile is linked to the user via 
-            # a one-to-one relationship
             user = get_object_or_404(CustomUser, pk=pk)
         except Exception:
             return Response({"error": "Profile not found"},
@@ -161,21 +160,14 @@ class ProfileView(APIView):
             return Response({"error": "Access denied"},
                             status=status.HTTP_403_FORBIDDEN)
 
-        serializer = CustomUserSerializer(user, context={'request': request})
+        serializer = CustomUserGetSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class ReviewView(APIView):
+class ReviewWithPkView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        serializer = ReviewSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Review created successfully'},
-                            status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    http_method_names = ['put', 'get', 'delete']
 
     def put(self, request, pk):
         review = get_object_or_404(Review, pk=pk)
@@ -192,12 +184,48 @@ class ReviewView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request, pk=None):
+    def get(self, request, pk):
         if pk:
             review = get_object_or_404(Review, pk=pk)
             serializer_review = ReviewSerializer(review)
             return Response(serializer_review.data, status=status.HTTP_200_OK)
-        else:
-            review = Review.objects.filter(for_user=request.user)
-            serializer_review = ReviewSerializer(review, many=True)
-            return Response(serializer_review.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        if request.user.id != int(request.data['user']):
+            return Response(
+                {"detail": "You are not authorized to delete this review."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        review = get_object_or_404(Review, pk=pk)
+        if review.user != request.user:
+            return Response(
+                {"detail": "You are not authorized to delete this review."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        review.delete()
+        return Response({'message': 'Review deleted successfully'},
+                        status=status.HTTP_204_NO_CONTENT)
+
+
+class ReviewView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post', 'get']
+
+    def post(self, request):
+        if request.user.id != int(request.data['user']):
+            return Response(
+                {"detail": "You are not authorized to create this review."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = ReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Review created successfully'},
+                            status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        review = Review.objects.filter(for_user=request.data['for_user'])
+        serializer_review = ReviewSerializer(review, many=True)
+        return Response(serializer_review.data, status=status.HTTP_200_OK)

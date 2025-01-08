@@ -11,14 +11,15 @@ from trainers.models import (Trainer,
                              Experience,
                              WholeExperience,
                              TrainerWeekend,
-                             MuscleGroupCategory,
+                             ExerciseCategory,
                              )
 from users.models import CustomUser
+from django.core.exceptions import ValidationError
 
 
 class MuscleGroupCategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = MuscleGroupCategory
+        model = ExerciseCategory
         fields = ['id', 'name']
 
 
@@ -32,7 +33,7 @@ class ExerciseSerializer(serializers.ModelSerializer):
         fields = ['id',
                   'name',
                   'description',
-                  'muscle_group_category',
+                  'category',
                   'is_public',
                   'shared_with',
                   ]
@@ -196,15 +197,51 @@ class HolidaySerializer(serializers.ModelSerializer):
 
 
 class WorkHoursSerializer(serializers.ModelSerializer):
+    trainer = serializers.PrimaryKeyRelatedField(queryset=Trainer.objects.all())
+
     class Meta:
         model = WorkHours
         fields = ['id', 'trainer', 'start_time', 'end_time']
+
+    def validate(self, data):
+        if 'trainer' in data and WorkHours.objects.filter(trainer=data['trainer']).exists():
+            raise serializers.ValidationError("Workhours already exists.")
+        return super().validate(data)
 
 
 class TrainerWeekendSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainerWeekend
-        fields = ['id', 'weekday', 'trainer']
+        fields = ['id', 'weekday_ids', 'trainer']
+
+    def update(self, instance, validated_data):
+        weekday_ids = validated_data.pop('weekday_ids', [])
+        instance.trainer = validated_data.get('trainer', instance.trainer)
+
+        # Очистка существующих связанных записей
+        instance.weekday.clear()
+
+        # Добавляем новые записи
+        for weekday_id in weekday_ids:
+            weekday = WeekDay.objects.get(id=weekday_id)
+            instance.weekday.add(weekday)
+
+        instance.save()
+        return instance
+
+    def create(self, validated_data):
+        weekday_ids = validated_data.pop('weekday_ids', [])
+        trainer = validated_data.get('trainer')
+
+        # Создание нового объекта TrainerWeekend
+        trainer_weekend = TrainerWeekend.objects.create(trainer=trainer)
+
+        # Добавление связей ManyToMany
+        for weekday_id in weekday_ids:
+            weekday = WeekDay.objects.get(id=weekday_id)
+            trainer_weekend.weekday.add(weekday)
+
+        return trainer_weekend
 
 
 class ExperienceSerializer(serializers.ModelSerializer):

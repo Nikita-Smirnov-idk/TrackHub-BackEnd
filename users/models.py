@@ -48,7 +48,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     is_public = models.BooleanField(default=True)
-    is_active = models.BooleanField(default=True)
+    is_online = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_trainer = models.BooleanField(default=False)  # Custom field
     timezone = models.CharField(max_length=50, default='UTC')
@@ -118,6 +118,11 @@ class Review(models.Model):
     for_user = models.ForeignKey(CustomUser,
                                  on_delete=models.CASCADE,
                                  related_name='received_reviews')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'for_user'], name='unique_user_for_user')
+        ]
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)  # Сохраняем запись
