@@ -10,7 +10,6 @@ from trainers.models import (Trainer,
                              WorkHours,
                              Experience,
                              WholeExperience,
-                             TrainerWeekend,
                              ExerciseCategory,
                              )
 from users.models import CustomUser
@@ -197,51 +196,15 @@ class HolidaySerializer(serializers.ModelSerializer):
 
 
 class WorkHoursSerializer(serializers.ModelSerializer):
-    trainer = serializers.PrimaryKeyRelatedField(queryset=Trainer.objects.all())
+    trainer_id = serializers.PrimaryKeyRelatedField(
+        queryset=Trainer.objects.all(),
+        source='trainer',
+    )
 
     class Meta:
         model = WorkHours
-        fields = ['id', 'trainer', 'start_time', 'end_time']
-
-    def validate(self, data):
-        if 'trainer' in data and WorkHours.objects.filter(trainer=data['trainer']).exists():
-            raise serializers.ValidationError("Workhours already exists.")
-        return super().validate(data)
-
-
-class TrainerWeekendSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TrainerWeekend
-        fields = ['id', 'weekday_ids', 'trainer']
-
-    def update(self, instance, validated_data):
-        weekday_ids = validated_data.pop('weekday_ids', [])
-        instance.trainer = validated_data.get('trainer', instance.trainer)
-
-        # Очистка существующих связанных записей
-        instance.weekday.clear()
-
-        # Добавляем новые записи
-        for weekday_id in weekday_ids:
-            weekday = WeekDay.objects.get(id=weekday_id)
-            instance.weekday.add(weekday)
-
-        instance.save()
-        return instance
-
-    def create(self, validated_data):
-        weekday_ids = validated_data.pop('weekday_ids', [])
-        trainer = validated_data.get('trainer')
-
-        # Создание нового объекта TrainerWeekend
-        trainer_weekend = TrainerWeekend.objects.create(trainer=trainer)
-
-        # Добавление связей ManyToMany
-        for weekday_id in weekday_ids:
-            weekday = WeekDay.objects.get(id=weekday_id)
-            trainer_weekend.weekday.add(weekday)
-
-        return trainer_weekend
+        fields = ['id', 'trainer_id', 'start_time', 'end_time']
+        read_only_fields = ['id', 'trainer_id']
 
 
 class ExperienceSerializer(serializers.ModelSerializer):
@@ -266,7 +229,10 @@ class WholeExperienceSerializer(serializers.ModelSerializer):
 
 
 class TrainerGetSerializer(serializers.ModelSerializer):
-    weekends = TrainerWeekendSerializer(many=True, read_only=True)
+    weekends = serializers.PrimaryKeyRelatedField(
+        queryset=WeekDay.objects.all(),
+        many=True
+    )
     work_hours = serializers.PrimaryKeyRelatedField(
         queryset=WorkHours.objects.all(), allow_null=True
     )

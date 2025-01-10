@@ -424,8 +424,8 @@ class ReviewCreationTestCase(APITestCase):
         self.client.force_authenticate(user=self.user_1)
 
         response = self.client.post(self.create_url,
-                                    data={'user': self.user_1.pk,
-                                          'for_user': self.user_2.pk,
+                                    data={
+                                          'for_user_id': self.user_2.pk,
                                           'rating': 5,
                                           'review_text': 'Great trainer!'})
         self.user_1.refresh_from_db()
@@ -447,16 +447,16 @@ class ReviewCreationTestCase(APITestCase):
         self.client.force_authenticate(user=self.user_1)
 
         response = self.client.post(self.create_url,
-                                    data={'user': self.user_1.pk,
-                                          'for_user': self.user_2.pk,
+                                    data={'user_id': self.user_1.pk,
+                                          'for_user_id': self.user_2.pk,
                                           'rating': 5,
                                           'review_text': 'Great trainer!'})
         self.user_1.refresh_from_db()
         self.user_2.refresh_from_db()
 
         response = self.client.post(self.create_url,
-                                    data={'user': self.user_1.pk,
-                                          'for_user': self.user_2.pk,
+                                    data={'user_id': self.user_1.pk,
+                                          'for_user_id': self.user_2.pk,
                                           'rating': 3,
                                           'review_text': 'Bad trainer!'})
         self.user_1.refresh_from_db()
@@ -466,9 +466,9 @@ class ReviewCreationTestCase(APITestCase):
     def test_create_review_with_invalid_data(self):
         self.client.force_authenticate(user=self.user_2)
         response = self.client.post(self.create_url,
-                                    data={'for_user': self.user_1.pk,
+                                    data={'for_user_id': self.user_1.pk,
                                           'review_text': 'Great trainer!',
-                                          'user': self.user_2.pk},)
+                                          'user_id': self.user_2.pk},)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_invalid_url(self):
@@ -476,17 +476,17 @@ class ReviewCreationTestCase(APITestCase):
 
         response = self.client.post(reverse(self.detail_review_url,
                                             args=[1]),
-                                    data={'user': self.user_1.pk,
-                                          'for_user': self.user_2.pk,
+                                    data={'user_id': self.user_1.pk,
+                                          'for_user_id': self.user_2.pk,
                                           'rating': 5,
                                           'review_text': 'Great trainer!'})
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_create_review_unauthorized(self):
         response = self.client.post(self.create_url,
-                                    data={'for_user': self.user_1,
+                                    data={'for_user_id': self.user_1,
                                           'review_text': 'Great trainer!',
-                                          'user': self.user_2},)
+                                          'user_id': self.user_2},)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_change_review(self):

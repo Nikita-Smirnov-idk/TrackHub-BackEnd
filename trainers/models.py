@@ -43,8 +43,7 @@ class Trainer(models.Model):
     workout_duration_devided_by_value = models.PositiveIntegerField(
         default=30
     )
-    weekends = models.ManyToManyField('Weekday', through='TrainerWeekend',
-                                      blank=True,)
+    weekends = models.ManyToManyField('Weekday', blank=True)
     breaks = models.ManyToManyField('Break',
                                     blank=True,)
     holidays = models.ManyToManyField('Holiday',
@@ -76,6 +75,13 @@ class Trainer(models.Model):
         # Проверяем, есть ли связанные объекты (чтобы избежать дублирования)
         if not hasattr(self, 'whole_experience'):
             WholeExperience.objects.create(trainer=self)
+
+        if not WorkHours.objects.filter(trainer=self).exists():
+            WorkHours.objects.create(
+                trainer=self,
+                start_time='10:00:00',
+                end_time='18:00:00'
+            )
 
 
 class Exercise(models.Model):
@@ -172,22 +178,6 @@ class ExerciseCategory(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class TrainerWeekend(models.Model):
-    trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
-    weekday = models.ForeignKey(WeekDay, on_delete=models.CASCADE)
-
-    class Meta:
-        constraints = [
-                models.UniqueConstraint(
-                    fields=['trainer', 'weekday'],
-                    name='unique_trainer_weekday'
-                )
-            ]
-
-    def __str__(self):
-        return f"{self.trainer} has weekend on {self.weekday.name}"
 
 
 class Break(models.Model):
