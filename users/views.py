@@ -157,11 +157,12 @@ class ProfileView(APIView):
         except Exception:
             return Response({"error": "Profile not found"},
                             status=status.HTTP_404_NOT_FOUND)
+        serializer = CustomUserGetSerializer(user, context={'request': request})
+        if request.user.id == profile_id:
+            return Response(serializer.data, status=status.HTTP_200_OK)
         if not user.is_public:
             return Response({"error": "Access denied"},
                             status=status.HTTP_403_FORBIDDEN)
-
-        serializer = CustomUserGetSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

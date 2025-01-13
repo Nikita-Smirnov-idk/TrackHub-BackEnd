@@ -20,12 +20,20 @@ class MuscleGroupCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseCategory
         fields = ['id', 'name']
+        read_only_fields = ['id']
 
 
 class ExerciseSerializer(serializers.ModelSerializer):
     shared_with = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=CustomUser.objects.all()
-    )  # IDs пользователей, с которыми делимся
+        many=True,
+        queryset=CustomUser.objects.all(),
+    )
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=ExerciseCategory.objects.all(),
+    )
+    created_by = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+    )
 
     class Meta:
         model = Exercise
@@ -35,41 +43,35 @@ class ExerciseSerializer(serializers.ModelSerializer):
                   'category',
                   'is_public',
                   'shared_with',
+                  'created_by',
+                  'created_at',
                   ]
-        read_only_fields = ['created_by', 'created_at']
-
-    def create(self, validated_data):
-        user = self.context['request'].user
-        shared_with_data = validated_data.pop('shared_with', [])
-        exercise = Exercise.objects.create(created_by=user, **validated_data)
-
-        exercise.shared_with.set(shared_with_data)
-
-        return exercise
+        read_only_fields = ['id', 'created_at']
 
     def update(self, instance, validated_data):
-        # Извлекаем новые данные для shared_with
         shared_with_data = validated_data.pop('shared_with', [])
-
-        # Обновляем все остальные поля, используя
-        # super() для обработки их обновления
-        instance = super().update(instance, validated_data)
-
-        # Обновляем поле shared_with: только добавляем новых пользователей
-        current_shared_with = set(instance.shared_with.all())
-        new_shared_with = set(shared_with_data)
-
-        # Находим пользователей, которых нужно добавить
-        # (не удаляем существующих)
-        users_to_add = new_shared_with - current_shared_with
-        if users_to_add:
-            instance.shared_with.add(*users_to_add)
-
-        return instance
+        shared_with_data_previous = [
+            shared.id for shared in instance.shared_with.all()
+        ]
+        new_shared_with = shared_with_data_previous
+        for shared_user_id in shared_with_data:
+            if shared_user_id not in shared_with_data_previous:
+                new_shared_with.append(shared_user_id)
+        validated_data['shared_with'] = new_shared_with
+        return super().update(instance, validated_data)
 
 
 class WorkoutExerciseSerializer(serializers.ModelSerializer):
-    exercise = ExerciseSerializer(required=True)
+    exercise = serializers.PrimaryKeyRelatedField(
+        queryset=Exercise.objects.all(),
+    )
+    workout = serializers.PrimaryKeyRelatedField(
+        queryset=Workout.objects.all(),
+    )
+    available_for = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=CustomUser.objects.all(),
+    )
 
     class Meta:
         model = WorkoutExercise
@@ -79,100 +81,107 @@ class WorkoutExerciseSerializer(serializers.ModelSerializer):
                   'sets',
                   'reps',
                   'rest_time',
-                  'shared_with'
+                  'available_for',
                   ]
-        read_only_fields = ['created_by', 'created_at']
+        read_only_fields = ['id']
 
-    def create(self, validated_data):
-        user = self.context['request'].user
-        shared_with_data = validated_data.pop('shared_with', [])
-        workoutexercise = WorkoutExercise.objects.create(created_by=user,
-                                                         **validated_data)
+    def validate(self, attrs):
+        if self.instance:
+            workout_exercise_id = self.instance.id
+            if not WorkoutExercise.objects.filter(id=workout_exercise_id).exists():
+                raise ValidationError("Workout exercise does not exist.")
+            workout_exercise = WorkoutExercise.objects.get(id=workout_exercise_id)
+            if self.attrs.get('workout', None) != workout_exercise.workout.id:
+                raise ValidationError("Workout does not match.")
+            if self.attrs.get('exercise', None) != workout_exercise.exercise.id:
+                raise ValidationError("Exercise does not match.")
 
-        workoutexercise.shared_with.set(shared_with_data)
+        return super().validate(attrs)
 
-        return workoutexercise
-
-    def update(self, instance, validated_data):
-        # Извлекаем новые данные для shared_with
-        shared_with_data = validated_data.pop('shared_with', [])
-
-        # Обновляем все остальные поля, используя super()
-        # для обработки их обновления
-        instance = super().update(instance, validated_data)
-
-        # Обновляем поле shared_with: только добавляем новых пользователей
-        current_shared_with = set(instance.shared_with.all())
-        new_shared_with = set(shared_with_data)
-
-        # Находим пользователей, которых нужно добавить
-        # (не удаляем существующих)
-        users_to_add = new_shared_with - current_shared_with
-        if users_to_add:
-            instance.shared_with.add(*users_to_add)
-
-        return instance
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['exercise'] = ExerciseSerializer(instance.exercise).data
+        return data
 
 
-# Пример для тренировки
 class WorkoutSerializer(serializers.ModelSerializer):
     workout_exercises = WorkoutExerciseSerializer(many=True, required=False)
+
     shared_with = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=CustomUser.objects.all()
-    )  # IDs пользователей, с которыми делимся
+        many=True,
+        queryset=CustomUser.objects.all(),
+    )
+
+    created_by = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+    )
 
     class Meta:
         model = Workout
         fields = [
             'id',
+            'created_by',
+            'shared_with',
             'name',
             'workout_exercises',
-            'shared_with',
+            'is_public',
+            'rest_between_workout_exercises',
+            'created_at',
         ]
-        read_only_fields = ['created_by', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
     def create(self, validated_data):
-        user = self.context['request'].user
         workout_exercises_data = validated_data.pop('workout_exercises', [])
-        shared_with_data = validated_data.pop('shared_with', [])
-        workout = Workout.objects.create(created_by=user, **validated_data)
 
-        # Создаем или получаем упражнения и добавляем их в тренировку
-        for exercise_data in workout_exercises_data:
-            workout_exercise, _ = Exercise.objects.get_or_create(
-                **exercise_data
+        # Создаем Workout
+        workout = Workout.objects.create(**validated_data)
+
+        for we_data in workout_exercises_data:
+            exercise_id = we_data.get('exercise')
+
+            # Проверяем существование Exercise
+            exercise = Exercise.objects.filter(id=exercise_id).first()
+            if not exercise:
+                raise serializers.ValidationError({
+                    'workout_exercises':
+                    f'Exercise with id {exercise_id} does not exist.'
+                })
+
+            # Создаем WorkoutExercise
+            WorkoutExercise.objects.create(
+                workout=workout,
+                exercise=exercise,
+                **we_data
             )
-            workout.exercises.add(workout_exercise)
-
-        workout.shared_with.set(shared_with_data)
 
         return workout
 
     def update(self, instance, validated_data):
-        # Извлечение данных для обновления
-        # None, если данные не переданы
-        exercises_data = validated_data.pop('exercises', None)
-        shared_with_data = validated_data.pop('shared_with', None)
+        workout_exercises_data = validated_data.pop('workout_exercises', None)
 
-        # Обновляем простые поля модели
-        instance = super().update(instance, validated_data)
+        # Обновляем Workout
+        super().update(instance, validated_data)
 
-        # Обновляем поле exercises, если данные были переданы
-        if exercises_data is not None:  # Только если передано
-            instance.exercises.clear()  # Удаляем старые связи
-            for exercise_data in exercises_data:
-                exercise, _ = Exercise.objects.get_or_create(**exercise_data)
-                instance.exercises.add(exercise)
+        if workout_exercises_data:
+            # Удаляем старые WorkoutExercise
+            instance.workout_exercises.all().delete()
 
-        # Обновляем поле shared_with: только добавляем новых пользователей
-        current_shared_with = set(instance.shared_with.all())
-        new_shared_with = set(shared_with_data)
+            for we_data in workout_exercises_data:
+                exercise_id = we_data.get('exercise')
 
-        # Находим пользователей, которых нужно добавить
-        # (не удаляем существующих)
-        users_to_add = new_shared_with - current_shared_with
-        if users_to_add:
-            instance.shared_with.add(*users_to_add)
+                # Проверяем существование Exercise
+                exercise = Exercise.objects.filter(id=exercise_id).first()
+                if not exercise:
+                    raise serializers.ValidationError({
+                        'workout_exercises': f'Exercise with id {exercise_id} does not exist.'
+                    })
+
+                # Создаем WorkoutExercise
+                WorkoutExercise.objects.create(
+                    workout=instance,
+                    exercise=exercise,
+                    **we_data
+                )
 
         return instance
 
@@ -181,18 +190,21 @@ class WeekDaySerializer(serializers.ModelSerializer):
     class Meta:
         model = WeekDay
         fields = ['id', 'name']
+        read_only_fields = ['id']
 
 
 class BreakSerializer(serializers.ModelSerializer):
     class Meta:
         model = Break
         fields = ['id', 'name', 'start_time', 'end_time']
+        read_only_fields = ['id']
 
 
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Holiday
         fields = ['id', 'name', 'start_date', 'end_date']
+        read_only_fields = ['id']
 
 
 class WorkHoursSerializer(serializers.ModelSerializer):
@@ -220,12 +232,14 @@ class ExperienceSerializer(serializers.ModelSerializer):
             'start_date',
             'end_date'
         ]
+        read_only_fields = ['id']
 
 
 class WholeExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WholeExperience
         fields = ['id', 'trainer', 'experience']
+        read_only_fields = ['id']
 
 
 class TrainerGetSerializer(serializers.ModelSerializer):
@@ -263,6 +277,7 @@ class TrainerGetSerializer(serializers.ModelSerializer):
             'holidays',
             'whole_experience',
         ]
+        read_only_fields = ['id']
 
 
 class TrainerSerializer(serializers.ModelSerializer):
@@ -280,3 +295,4 @@ class TrainerSerializer(serializers.ModelSerializer):
             'minimum_workout_duration',
             'workout_duration_devided_by_value',
         ]
+        read_only_fields = ['id']

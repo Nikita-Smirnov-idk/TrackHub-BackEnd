@@ -18,6 +18,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
             'password',
             'is_trainer'
         ]
+        read_only_fields = ['id']
 
     def validate(self, data):
         request_method = self.context.get('request').method
@@ -46,6 +47,7 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
             'is_trainer',
             'user_rating'
         ]
+        read_only_fields = ['id']
 
 
 # class RatingOfUserSerializer(serializers.ModelSerializer):

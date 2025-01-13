@@ -14,19 +14,6 @@ class CategoryOfTrainers(models.Model):
         return self.name
 
 
-class TrainerCategory(models.Model):
-    trainer = models.ForeignKey('Trainer', on_delete=models.CASCADE)
-    category = models.ForeignKey(CategoryOfTrainers, on_delete=models.CASCADE)
-
-    class Meta:
-        # Гарантируем, что один тренер не может быть в одной категории
-        # несколько раз
-        unique_together = ('trainer', 'category')
-
-    def __str__(self):
-        return f"{self.trainer.user.name} - {self.category.name}"
-
-
 class Trainer(models.Model):
     user = models.OneToOneField(
         CustomUser,
@@ -48,8 +35,7 @@ class Trainer(models.Model):
                                     blank=True,)
     holidays = models.ManyToManyField('Holiday',
                                       blank=True,)
-    trainer_categories = models.ManyToManyField(CategoryOfTrainers,
-                                                through='TrainerCategory',
+    trainer_categories = models.ManyToManyField('CategoryOfTrainers',
                                                 blank=True)
 
     class Meta:
@@ -93,7 +79,7 @@ class Exercise(models.Model):
                                  related_name='exercises')
 
     # Упражнение доступно для всех
-    is_public = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=False)
 
     shared_with = models.ManyToManyField(CustomUser,
                                          related_name='shared_exercises',
@@ -110,6 +96,15 @@ class Exercise(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if (
+            self.created_by is None and
+            self.shared_with.count() == 0 and
+            not self.is_public
+        ):
+            self.delete()
+
 
 class Workout(models.Model):
     created_by = models.ForeignKey(CustomUser,
@@ -125,11 +120,29 @@ class Workout(models.Model):
                                          blank=True)  # С кем поделились
     name = models.CharField(max_length=100)
     exercises = models.ManyToManyField(Exercise, through='WorkoutExercise')
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    rest_between_workout_exercises = models.PositiveIntegerField(default=0)
 
     def __str__(self):
 
-        return f"Workout for {self.user.name}"
+        return f"{self.name}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        for exercise in self.exercises.all():
+            for user in self.shared_with.all():
+                if not exercise.shared_with.filter(id=user.id).exists():
+                    exercise.shared_with.add(user)
+            if self.created_by and exercise.created_by != self.created_by:
+                exercise.shared_with.add(self.created_by)
+
+        for workout_exercise in self.workout_exercises.filter(workout=self):
+            for user in self.shared_with.all():
+                if not workout_exercise.available_for.filter(
+                    id=user.id
+                ).exists():
+                    workout_exercise.available_for.add(user)
 
 
 class WorkoutExercise(models.Model):
@@ -141,28 +154,20 @@ class WorkoutExercise(models.Model):
                                 # Для обратной связи
                                 related_name="workout_exercises",
                                 )
-    shared_with = models.ManyToManyField(
-        CustomUser,
-        related_name='shared_workout_exercises',
-        blank=True  # С кем поделились
-    )
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
     sets = models.PositiveIntegerField()  # Количество подходов
     reps = models.PositiveIntegerField()  # Количество повторений
     # Время отдыха между подходами (в секундах)
     rest_time = models.PositiveIntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(CustomUser,
-                                   on_delete=models.SET_NULL,
-                                   null=True,  # Поле может быть пустым
-                                   # Разрешаем не указывать значение в форме
-                                   blank=True,
-                                   # Для обратной связи
-                                   related_name="created_workout_exercises",
-                                   )
+    available_for = models.ManyToManyField(
+        CustomUser,
+        related_name='available_workout_exercises',
+        blank=True
+    )  # Кому доступно
 
     def __str__(self):
-        return f"{self.exercise.name} in {self.workout.user.name}'s workout"
+        return (f"exercise is {self.exercise.name} with " +
+                f"{self.sets} sets and {self.reps} reps")
 
 
 class WeekDay(models.Model):
