@@ -14,7 +14,7 @@ def create_client_for_user(sender, instance, created, **kwargs):
     if created:
         if not instance.is_trainer:
             Client.objects.get_or_create(
-                is_active=instance.is_trainer,
+                is_active=(not instance.is_trainer),
                 user=instance,
             )
         if instance.is_trainer:

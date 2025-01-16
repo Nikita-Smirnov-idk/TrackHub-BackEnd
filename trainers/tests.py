@@ -2,6 +2,9 @@ from rest_framework.test import APITestCase
 from trainers.models import (
     WorkHours,
 )
+from clients.models import (
+    TrainersOfCLient,
+)
 from django.urls import reverse
 from rest_framework import status
 from trainers.serializers import (
@@ -30,6 +33,18 @@ class WorkHoursViewTests(APITestCase):
             first_name='testuser2',
             is_trainer=True,
         )
+        self.user_3 = self.User.objects.create_user(
+            email='testuser3@example.com',
+            password='Securepassword123',
+            first_name='testuser3',
+            is_trainer=False,
+        )
+        self.trainer_of_client = TrainersOfCLient.objects.create(
+            client=self.user_3.client,
+            trainer=self.user.trainer,
+            found_by_link=True,
+        )
+        self.user_3.client.trainers_of_client.add(self.trainer_of_client)
 
     def test_get_work_hours_authenticated_trainer(self):
         self.client.force_authenticate(user=self.user)
@@ -80,3 +95,12 @@ class WorkHoursViewTests(APITestCase):
         response = self.client.put(self.work_hours_url, data=data)
         self.user_2.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_get_work_hours_with_followed_by_link(self):
+        self.client.force_authenticate(user=self.user_3)
+        response = self.client.get(self.work_hours_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data,
+            WorkHoursSerializer(self.work_hours).data
+        )

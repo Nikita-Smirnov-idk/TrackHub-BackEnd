@@ -12,11 +12,24 @@ class CustomUserManager(BaseUserManager):
     Custom manager for the CustomUser model.
     """
 
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(
+        self,
+        email,
+        password=None,
+        is_trainer=False,
+        **extra_fields
+    ):
         if not email:
             raise ValueError('The Email field is required')
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        unique_identifier = f"{email}:{is_trainer}"
+
+        user = self.model(
+            email=email,
+            unique_identifier=unique_identifier,
+            is_trainer=is_trainer,
+            **extra_fields
+        )
         if password:
             user.set_password(password)
         else:
@@ -42,9 +55,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model.
     """
-    email = models.EmailField(unique=True, validators=[EmailValidator()])
+    email = models.EmailField(validators=[EmailValidator()])
     password = models.CharField(max_length=128,
                                 validators=[password_validator])
+
+    unique_identifier = models.CharField(max_length=512, unique=True)
+    username = None
+
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     is_public = models.BooleanField(default=True)
@@ -55,8 +72,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username']
+    USERNAME_FIELD = 'unique_identifier'
+    REQUIRED_FIELDS = ['email']
 
     class Meta:
         indexes = [
@@ -67,11 +84,20 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
                 fields=['last_name'],
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['email', 'is_trainer'],
+                name='unique_email_is_trainer',
+            )
+        ]
 
     def __str__(self):
         return self.email
 
     def save(self, *args, **kwargs):
+        if not self.unique_identifier:
+            self.unique_identifier = f"{self.email}:{self.is_trainer}"
+
         # Сохраняем объект User
         super().save(*args, **kwargs)
 

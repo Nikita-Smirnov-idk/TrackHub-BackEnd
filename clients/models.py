@@ -12,7 +12,7 @@ class Client(models.Model):
     is_active = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Client: {self.user.name} {self.user.surname}"
+        return f"Client: {self.user.first_name} {self.user.last_name}"
 
 
 class TrainersOfCLient(models.Model):
@@ -29,7 +29,10 @@ class TrainersOfCLient(models.Model):
     found_by_link = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.client.user.name} -> {self.trainer.user.name}"
+        return (
+            f"{self.client.user.first_name} ->" +
+            f" {self.trainer.user.first_name}"
+        )
 
 
 class WorkoutSession(models.Model):

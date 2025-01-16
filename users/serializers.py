@@ -6,6 +6,7 @@ from users.models import (
 from users.validators import password_validator
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth import get_user_model
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -34,6 +35,26 @@ class CustomUserSerializer(serializers.ModelSerializer):
                         {field: f"{field} is required for creation."}
                     )
             password_validator(data['password'])
+
+        # --- part for different accounts with the same email
+        email = data.get('email')
+        password = data.get('password')
+        is_trainer = data.get('is_trainer', False)
+
+        existing_users = get_user_model().objects.filter(email=email)
+
+        # Если существуют пользователи с таким email
+        if existing_users.exists():
+            for user in existing_users:
+                # Если значения is_trainer отличаются,
+                # проверяем совпадение пароля
+                if user.is_trainer != is_trainer:
+                    if not user.check_password(password):
+                        raise serializers.ValidationError(
+                            "Пароль должен совпадать с паролем" +
+                            " другого аккаунта с этим email."
+                        )
+        # -- part ended
 
         return super().validate(data)
 

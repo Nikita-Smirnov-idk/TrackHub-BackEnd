@@ -3,10 +3,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.http import QueryDict
 from django.shortcuts import get_object_or_404
 from trainers.models import (
     Trainer,
     WorkHours,
+    Experience,
+    WholeExperience,
 )
 from django.contrib.postgres.search import (
     SearchQuery,
@@ -19,8 +22,14 @@ from trainers.serializers import (
     TrainerSerializer,
     TrainerGetSerializer,
     WorkHoursSerializer,
+    ExperienceSerializer,
+    WholeExperienceSerializer,
 )
-from trainers.permissions import IsTrainer
+from trainers.permissions import (
+    IsTrainer,
+    IsClient,
+    choose_what_to_return_for_trainer
+)
 
 
 class TrainerView(APIView):
@@ -145,30 +154,27 @@ class WorkHoursGetPutView(APIView):
         return [IsAuthenticated(), IsTrainer()]
 
     def get(self, request, trainer_id):
-        is_trainer_permission = IsTrainer()
+        is_client_permission = IsClient()
+
         trainer = get_object_or_404(Trainer, pk=trainer_id)
-        trainer_of_user = trainer.clients_of_trainer
+
+        if is_client_permission.has_permission(request, self):
+            trainer_of_user = trainer.clients_of_trainer.get(
+                client=request.user.client
+            )
+        else:
+            trainer_of_user = None
 
         work_hours = get_object_or_404(WorkHours, trainer=trainer)
         serializer = WorkHoursSerializer(work_hours)
-
-        if (
-            is_trainer_permission.has_permission(request, self) and
-            request.user.trainer == trainer
-        ):
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        if trainer.is_active:
-            if trainer.is_public:
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                if (request.user.is_authenticated
-                   and trainer_of_user.found_by_link):
-                    return Response(serializer.data, status=status.HTTP_200_OK)
-                else:
-                    return Response({'message': 'Trainer is not public'},
-                                    status=status.HTTP_400_BAD_REQUEST)
-        return Response({'message': 'Trainer is not active'},
-                        status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.data
+        return choose_what_to_return_for_trainer(
+            self,
+            request,
+            trainer,
+            data,
+            trainer_of_user
+        )
 
     def put(self, request, trainer_id):
         if 'trainer_id' in request.data:
@@ -191,4 +197,145 @@ class WorkHoursGetPutView(APIView):
             serializer.save()
             return Response(serializer.data,
                             status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExperienceDetailView(APIView):
+    http_method_names = ['get', 'put', 'delete']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            # Allow any user to access GET requests
+            return [AllowAny()]
+        # Require authentication for other methods
+        return [IsAuthenticated(), IsTrainer()]
+
+    def get(self, request, experience_id):
+        is_client_permission = IsClient()
+
+        experience = get_object_or_404(Experience, pk=experience_id)
+        trainer = get_object_or_404(Trainer, pk=experience.trainer.id)
+
+        if is_client_permission.has_permission(request, self):
+            trainer_of_user = trainer.clients_of_trainer.get(
+                client=request.user.client
+            )
+        else:
+            trainer_of_user = None
+
+        serializer = ExperienceSerializer(experience)
+        data = serializer.data
+
+        return choose_what_to_return_for_trainer(
+            self,
+            request,
+            trainer,
+            data,
+            trainer_of_user
+        )
+
+    def put(self, request, experience_id):
+        if 'trainer_id' in request.data:
+            return Response(
+                {'message': 'You can not have trainer in ' +
+                 'request data. You already have it in url.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        experience = get_object_or_404(Experience, pk=experience_id)
+        trainer = get_object_or_404(Trainer, pk=experience.trainer.id)
+
+        if request.user.trainer != trainer:
+            return Response(
+                {'message': 'You are not authorized to edit this trainer.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ExperienceSerializer(
+            experience, data=request.data, partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data,
+                            status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, experience_id):
+        experience = get_object_or_404(Experience, pk=experience_id)
+        trainer = get_object_or_404(Trainer, pk=experience.trainer.id)
+        if request.user.trainer != trainer:
+            return Response(
+                {'message': 'You are not authorized to edit this trainer.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        experience.delete()
+        return Response(
+            {'message': 'Experience deleted successfully'},
+            status=status.HTTP_200_OK
+        )
+
+
+class ExperiencesOfTrainerView(APIView):
+    http_method_names = ['get']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            # Allow any user to access GET requests
+            return [AllowAny()]
+
+    def get(self, request, trainer_id):
+        is_client_permission = IsClient()
+
+        trainer = get_object_or_404(Trainer, pk=trainer_id)
+
+        if is_client_permission.has_permission(request, self):
+            trainer_of_user = trainer.clients_of_trainer.get(
+                client=request.user.client
+            )
+        else:
+            trainer_of_user = None
+
+        data = []
+
+        experiences = Experience.objects.filter(trainer=trainer)
+        whole_experience = WholeExperience.objects.get(trainer=trainer)
+
+        data.append(WholeExperienceSerializer(whole_experience).data)
+
+        for experience in experiences:
+            serializer = ExperienceSerializer(experience)
+            data.append(serializer.data)
+
+        return choose_what_to_return_for_trainer(
+            self,
+            request,
+            trainer,
+            data,
+            trainer_of_user
+        )
+
+
+class ExperienceView(APIView):
+    http_method_names = ['post']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsTrainer()]
+
+    def post(self, request):
+        if isinstance(request.data, QueryDict):  # optional
+            request.data._mutable = True
+        request.data["trainer"] = request.user.trainer.id
+        if isinstance(request.data, QueryDict):  # optional
+            request.data._mutable = False
+
+        serializer = ExperienceSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -110,7 +110,6 @@ class Experience(models.Model):
     trainer = models.ForeignKey('Trainer',
                                 on_delete=models.CASCADE,
                                 related_name='experiences')  # Связь с тренером
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     company_name = models.CharField(max_length=255)
     position = models.CharField(max_length=255)
     description = models.CharField(max_length=255, blank=True, null=True)

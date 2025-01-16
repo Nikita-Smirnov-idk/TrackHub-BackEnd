@@ -97,12 +97,18 @@ class LoginView(APIView):
         raw_email = request.data.get('email')
         email = BaseUserManager.normalize_email(raw_email)
 
+        is_trainer = request.data.get('is_trainer', False)
+
         password = request.data.get('password')
+
         if any([not email, not password]):
             return Response({'error': 'Invalid credentials'},
                             status=status.HTTP_400_BAD_REQUEST)
-        user = authenticate(email=email,
-                            password=password)
+
+        user = authenticate(
+            unique_identifier=f"{email}:{is_trainer}", password=password
+        )
+
         if user:
             refresh = RefreshToken.for_user(user)
             return Response({'refresh': str(refresh),
