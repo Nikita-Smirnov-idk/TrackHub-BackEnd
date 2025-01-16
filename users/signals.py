@@ -12,8 +12,13 @@ def create_client_for_user(sender, instance, created, **kwargs):
     no related Client and Trainer.
     """
     if created:
-        Client.objects.get_or_create(user=instance)
-        Trainer.objects.get_or_create(
-            user=instance,
-            is_active=instance.is_trainer,
-        )
+        if not instance.is_trainer:
+            Client.objects.get_or_create(
+                is_active=instance.is_trainer,
+                user=instance,
+            )
+        if instance.is_trainer:
+            Trainer.objects.get_or_create(
+                user=instance,
+                is_active=instance.is_trainer,
+            )

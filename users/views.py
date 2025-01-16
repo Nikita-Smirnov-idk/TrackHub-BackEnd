@@ -11,9 +11,9 @@ from users.models import Review, CustomUser
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.contrib.auth.models import BaseUserManager
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.models import BaseUserManager
 
 
 class CustomUserRegisterView(APIView):
@@ -117,6 +117,20 @@ class LoginView(APIView):
                                 status=status.HTTP_404_NOT_FOUND)
 
 
+class ChangeUserDataView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        user = request.user
+        serializer = CustomUserSerializer(user, data=request.data,
+                                          context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ProfileView(APIView):
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -133,7 +147,9 @@ class ProfileView(APIView):
         return [JWTAuthentication()]
 
     def put(self, request, profile_id):
-        if not (request.user.is_authenticated and request.user.id == profile_id):
+        if not (
+            request.user.is_authenticated and request.user.id == profile_id
+        ):
             return Response(
                 {"detail": "You are not authorized to edit this profile."},
                 status=status.HTTP_403_FORBIDDEN
@@ -157,7 +173,9 @@ class ProfileView(APIView):
         except Exception:
             return Response({"error": "Profile not found"},
                             status=status.HTTP_404_NOT_FOUND)
-        serializer = CustomUserGetSerializer(user, context={'request': request})
+        serializer = CustomUserGetSerializer(
+            user, context={'request': request}
+        )
         if request.user.id == profile_id:
             return Response(serializer.data, status=status.HTTP_200_OK)
         if not user.is_public:

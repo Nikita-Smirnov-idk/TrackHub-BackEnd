@@ -12,6 +12,7 @@ from users.views import (
                             ReviewWithPkView,
                             LoginView,
                             ProfileView,
+                            ChangeUserDataView,
                         )
 
 urlpatterns = [
@@ -27,7 +28,16 @@ urlpatterns = [
          name='account_deletion'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('login/', LoginView.as_view(), name='login'),
+    path(
+        'change_user_data/',
+        ChangeUserDataView.as_view(),
+        name='change_user_data/'
+    ),
     path('reviews/', ReviewView.as_view(), name='review'),
-    path('reviews/<int:review_id>/', ReviewWithPkView.as_view(), name='review_detail'),
+    path(
+        'reviews/<int:review_id>/',
+        ReviewWithPkView.as_view(),
+        name='review_detail'
+    ),
     path('profile/<int:profile_id>/', ProfileView.as_view(), name='profile'),
 ]

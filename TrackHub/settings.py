@@ -43,8 +43,10 @@ INSTALLED_APPS = [
     'clients',
     'users',
     'trainers',
+    'workout_manager',
     'django_filters',
     'django.contrib.postgres',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -195,3 +197,10 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = 'users.CustomUser'
+
+# Обеспечиваем использование безопасных cookies
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = 3600  # Включение HSTS (Strict Transport Security)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True

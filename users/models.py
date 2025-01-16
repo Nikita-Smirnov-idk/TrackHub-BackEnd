@@ -121,7 +121,9 @@ class Review(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'for_user'], name='unique_user_for_user')
+            models.UniqueConstraint(
+                fields=['user', 'for_user'], name='unique_user_for_user'
+            )
         ]
 
     def save(self, *args, **kwargs):

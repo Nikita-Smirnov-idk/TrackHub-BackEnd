@@ -8,7 +8,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import (
                                                              BlacklistedToken,
                                                             )
-from users.models import Review, RatingOfUser
 
 
 class UserCreationTestCase(TestCase):
@@ -281,10 +280,14 @@ class RegisterViewTests(APITestCase):
         self.assertIsNotNone(get_user_model().objects.
                              get(email=self.valid_data['email']))
         self.assertIsNotNone(
-            get_user_model().objects.filter(email=self.valid_data['email']).first().trainer
+            get_user_model().objects.filter(
+                email=self.valid_data['email']
+            ).first().client
         )
-        self.assertIsNotNone(
-            get_user_model().objects.filter(email=self.valid_data['email']).first().client
+        self.assertTrue(
+            get_user_model().objects.filter(
+                email=self.valid_data['email']
+            ).first().check_password(self.valid_data['password'])
         )
 
     def test_account_register_with_invalid_password_data(self):
@@ -480,7 +483,9 @@ class ReviewCreationTestCase(APITestCase):
                                           'for_user_id': self.user_2.pk,
                                           'rating': 5,
                                           'review_text': 'Great trainer!'})
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(
+            response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
     def test_create_review_unauthorized(self):
         response = self.client.post(self.create_url,

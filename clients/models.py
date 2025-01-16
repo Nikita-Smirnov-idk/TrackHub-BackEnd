@@ -9,6 +9,7 @@ class Client(models.Model):
         on_delete=models.CASCADE,
         related_name='client'
     )
+    is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Client: {self.user.name} {self.user.surname}"

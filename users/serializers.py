@@ -1,8 +1,11 @@
 from rest_framework import serializers
-from users.models import CustomUser, RatingOfUser, Review
+from users.models import (
+    CustomUser,
+    Review,
+)
 from users.validators import password_validator
-from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError
+from django.contrib.auth.hashers import make_password
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -33,6 +36,17 @@ class CustomUserSerializer(serializers.ModelSerializer):
             password_validator(data['password'])
 
         return super().validate(data)
+
+    def create(self, validated_data):
+        validated_data['password'] = make_password(validated_data['password'])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'password' in validated_data:
+            validated_data['password'] = make_password(
+                validated_data['password']
+            )
+        return super().update(instance, validated_data)
 
 
 class CustomUserGetSerializer(serializers.ModelSerializer):
