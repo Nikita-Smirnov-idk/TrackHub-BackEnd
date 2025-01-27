@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django.contrib.postgres',
     'django_extensions',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -204,3 +206,26 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 3600  # Включение HSTS (Strict Transport Security)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Yandex Object Storage Configuration
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = 'trackhub-static'
+AWS_S3_ENDPOINT_URL = 'https://storage.yandexcloud.net'
+AWS_S3_REGION_NAME = 'ru-central1'
+AWS_S3_FILE_OVERWRITE = False
+AWS_QUERYSTRING_AUTH = False
+
+
+STORAGES = {
+
+    # Media file (image) management   
+    "default": {
+        "BACKEND": "TrackHub.trackhub_bucket.TrackHubMediaStorage",
+    },
+
+    # CSS and JS file management
+    "staticfiles": {
+        "BACKEND": "TrackHub.trackhub_bucket.TrackHubStaticStorage",
+    },
+}

@@ -3,7 +3,6 @@ from django.contrib.postgres.indexes import GinIndex
 from datetime import date
 from decimal import Decimal
 from users.models import CustomUser
-import trainers
 
 
 class CategoryOfTrainers(models.Model):
@@ -144,13 +143,6 @@ class WholeExperience(models.Model):
         Пересчитывает общий стаж тренера на основе его записей опыта работы
         и сохраняет результат в поле experience.
         """
-        if not trainers.is_installed('Trainer') or not trainers.get_model(
-            'Trainer',
-            'Experience'
-             ):
-            self.experience = 0.0
-            self.save()
-            return
 
         experiences = Experience.objects.filter(trainer=self.trainer)
         total_days = 0

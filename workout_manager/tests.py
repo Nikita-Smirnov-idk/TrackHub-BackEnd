@@ -29,6 +29,12 @@ class ExerciseViewTests(APITestCase):
             first_name='testuser2',
             is_trainer=True,
         )
+        self.user_3 = self.User.objects.create_user(
+            email='testuser3@example.com',
+            password='Securepassword123',
+            first_name='testuser3',
+            is_trainer=True,
+        )
         self.exercise_url = reverse('exercises')
         self.detail_exercise_url = 'exercise_detail'
         self.exercise_1 = Exercise.objects.create(
@@ -289,7 +295,7 @@ class ExerciseViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_delete_not_shared_with(self):
-        self.client.force_authenticate(user=self.user_2)
+        self.client.force_authenticate(user=self.user_3)
         response = self.client.delete(
             reverse(
                 self.detail_exercise_url,

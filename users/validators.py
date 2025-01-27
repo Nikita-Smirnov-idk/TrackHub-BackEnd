@@ -27,3 +27,12 @@ def password_validator(password):
 
     if errors:
         raise ValidationError(errors)
+
+
+def validate_image_size(image):
+    max_size = 200 * 1024  # 200 KB
+    if image.size > max_size:
+        raise ValidationError(
+            "Image size should not exceed 200 KB." +
+            f" Current size: {image.size / 1024:.2f} KB"
+        )

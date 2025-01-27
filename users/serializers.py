@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 
 class CustomUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    avatar = serializers.ImageField(use_url=True, required=False)
 
     class Meta:
         model = CustomUser
@@ -20,7 +21,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'password',
-            'is_trainer'
+            'is_trainer',
+            'avatar',
         ]
         read_only_fields = ['id']
 
@@ -68,6 +70,15 @@ class CustomUserSerializer(serializers.ModelSerializer):
                 validated_data['password']
             )
         return super().update(instance, validated_data)
+
+
+class CustomUserAvatarSerializer(serializers.ModelSerializer):
+    avatar = serializers.ImageField(use_url=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'avatar']
+        read_only_fields = ['id']
 
 
 class CustomUserGetSerializer(serializers.ModelSerializer):

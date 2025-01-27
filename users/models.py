@@ -3,8 +3,15 @@ from django.contrib.auth.models import (AbstractBaseUser,
                                         BaseUserManager,
                                         PermissionsMixin)
 from django.core.validators import EmailValidator
-from users.validators import password_validator
+from TrackHub import settings
+from users.validators import (
+    password_validator,
+    validate_image_size,
+)
 from django.contrib.postgres.indexes import GinIndex
+import boto3
+from django.core.exceptions import ImproperlyConfigured
+from TrackHub.trackhub_bucket import TrackHubMediaStorage
 
 
 class CustomUserManager(BaseUserManager):
@@ -58,6 +65,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(validators=[EmailValidator()])
     password = models.CharField(max_length=128,
                                 validators=[password_validator])
+    avatar = models.ImageField(
+        null=True,
+        blank=True,
+        validators=[validate_image_size],
+        storage=TrackHubMediaStorage()
+    )
 
     unique_identifier = models.CharField(max_length=512, unique=True)
     username = None
@@ -95,6 +108,20 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.email
 
     def save(self, *args, **kwargs):
+        # Check if we are updating an existing user
+        if self.pk:
+            # Get the current instance
+            old_instance = CustomUser.objects.get(pk=self.pk)
+
+            # Check if the avatar has changed and delete the
+            # old one from Yandex Storage
+            if old_instance.avatar and old_instance.avatar != self.avatar:
+                # Delete the old avatar from Yandex Storage
+                old_avatar_path = old_instance.avatar.name
+                self.delete_old_image_from_yandex_storage(old_avatar_path)
+
+        # Save the new avatar
+
         if not self.unique_identifier:
             self.unique_identifier = f"{self.email}:{self.is_trainer}"
 
@@ -104,6 +131,26 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         # Проверяем, есть ли связанные объекты (чтобы избежать дублирования)
         if not hasattr(self, 'user_rating'):
             RatingOfUser.objects.create(user=self)
+
+    def delete_old_image_from_yandex_storage(self, file_path):
+        """Deletes the old avatar from Yandex Object Storage"""
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            endpoint_url=settings.AWS_S3_ENDPOINT_URL
+        )
+        try:
+            s3_client.delete_object(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                # The file path (including folder) in your bucket
+                Key=file_path
+            )
+        except Exception as e:
+            raise ImproperlyConfigured(
+                "Error deleting old avatar from Yandex Object Storage:" +
+                f" {str(e)}"
+            )
 
     def set_password(self, raw_password):
         # Validate the password

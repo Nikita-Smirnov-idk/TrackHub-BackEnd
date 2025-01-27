@@ -6,6 +6,7 @@ from users.serializers import (
                                 CustomUserGetSerializer,
                                 CustomUserSerializer,
                                 ReviewSerializer,
+                                CustomUserAvatarSerializer,
                             )
 from users.models import Review, CustomUser
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -28,6 +29,60 @@ class CustomUserRegisterView(APIView):
             return Response(serializer.data,
                             status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomUserAvatarView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['put', 'post']
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def put(self, request):
+        user = request.user
+        serializer = CustomUserAvatarSerializer(
+            user, data=request.data, partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        user = request.user
+        serializer = CustomUserAvatarSerializer(
+            user, data=request.data, partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomUserAvatarDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    def get_permissions(self):
+        return [AllowAny()]
+
+    def get(self, request, user_id):
+        try:
+            user = get_object_or_404(CustomUser, pk=user_id)
+        except Exception:
+            return Response({"error": "Profile not found"},
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = CustomUserAvatarSerializer(
+            user, context={'request': request}
+        )
+        if request.user.id == user_id:
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        if not user.is_public:
+            return Response({"error": "Access denied"},
+                            status=status.HTTP_403_FORBIDDEN)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AccountDeletionView(APIView):

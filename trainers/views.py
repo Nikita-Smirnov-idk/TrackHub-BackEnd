@@ -32,9 +32,40 @@ from trainers.permissions import (
 )
 
 
-class TrainerView(APIView):
+class TrainerDetailView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    http_method_names = ['get', 'put', 'delete']
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            # Allow any user to access GET requests
+            return [AllowAny()]
+        # Require authentication for other methods
+        return [IsAuthenticated(), IsTrainer()]
+    
+    def get(self, request, trainer_id):
+        is_client_permission = IsClient()
+
+        experience = get_object_or_404(Experience, pk=trainer_id)
+        trainer = get_object_or_404(Trainer, pk=experience.trainer.id)
+
+        if is_client_permission.has_permission(request, self):
+            trainer_of_user = trainer.clients_of_trainer.filter(
+                client=request.user.client
+            ).first()
+        else:
+            trainer_of_user = None
+
+        serializer = TrainerGetSerializer(experience)
+        data = serializer.data
+        return choose_what_to_return_for_trainer(
+            self,
+            request,
+            trainer,
+            data,
+            trainer_of_user
+        )
 
 
 class TrainerSearchView(APIView):
@@ -219,15 +250,14 @@ class ExperienceDetailView(APIView):
         trainer = get_object_or_404(Trainer, pk=experience.trainer.id)
 
         if is_client_permission.has_permission(request, self):
-            trainer_of_user = trainer.clients_of_trainer.get(
+            trainer_of_user = trainer.clients_of_trainer.filter(
                 client=request.user.client
-            )
+            ).first()
         else:
             trainer_of_user = None
 
         serializer = ExperienceSerializer(experience)
         data = serializer.data
-
         return choose_what_to_return_for_trainer(
             self,
             request,

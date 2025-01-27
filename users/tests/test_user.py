@@ -106,8 +106,8 @@ class JWTAuthenticationTests(APITestCase):
     def test_obtain_tokens(self):
         """Проверка получения токенов (Access и Refresh)"""
         response = self.client.post(self.token_obtain_url, {
-            'email': 'testuser@example.com',
-            'password': 'Securepassword123'
+            'unique_identifier': 'testuser@example.com:False',
+            'password': 'Securepassword123',
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access', response.data)
@@ -128,8 +128,8 @@ class JWTAuthenticationTests(APITestCase):
         """Проверка обновления Access Token с помощью Refresh Token"""
         # Получаем токены
         response = self.client.post(self.token_obtain_url, {
-            'email': 'testuser@example.com',
-            'password': 'Securepassword123'
+            'unique_identifier': 'testuser@example.com:False',
+            'password': 'Securepassword123',
         })
         refresh_token = response.data['refresh']
         # Отправляем запрос на обновление Access Token
@@ -144,8 +144,8 @@ class JWTAuthenticationTests(APITestCase):
         """Проверка добавления Refresh Token в чёрный список при logout"""
         # Получаем токены
         response = self.client.post(self.token_obtain_url, {
-            'email': 'testuser@example.com',
-            'password': 'Securepassword123'
+            'unique_identifier': 'testuser@example.com:False',
+            'password': 'Securepassword123',
         })
         access_token = response.data['access']
         refresh_token = response.data['refresh']

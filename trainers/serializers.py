@@ -44,12 +44,15 @@ class WorkHoursSerializer(serializers.ModelSerializer):
 
 
 class ExperienceSerializer(serializers.ModelSerializer):
+    trainer = serializers.PrimaryKeyRelatedField(
+        queryset=Trainer.objects.all()
+    )
+
     class Meta:
         model = Experience
         fields = [
             'id',
             'trainer',
-            'user',
             'company_name',
             'position',
             'description',
@@ -57,6 +60,16 @@ class ExperienceSerializer(serializers.ModelSerializer):
             'end_date'
         ]
         read_only_fields = ['id']
+
+    def validate(self, attrs):
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        if start_date >= end_date:
+            raise serializers.ValidationError({
+                "end_date": "end_date must be later than start_date."
+            })
+
+        return super().validate(attrs)
 
 
 class WholeExperienceSerializer(serializers.ModelSerializer):

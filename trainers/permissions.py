@@ -58,6 +58,6 @@ def choose_what_to_return_for_trainer(
                 return Response(data, status=status.HTTP_200_OK)
             else:
                 return Response({'message': 'Trainer is not public'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_403_FORBIDDEN)
     return Response({'message': 'Trainer is not active'},
                     status=status.HTTP_400_BAD_REQUEST)

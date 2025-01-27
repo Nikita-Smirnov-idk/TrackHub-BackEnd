@@ -15,6 +15,8 @@ from workout_manager.serializers import (
     WorkoutSerializer,
     WorkoutExerciseSerializer,
 )
+from users.models import CustomUser
+from workout_manager.permissions import check_user_in_created_or_shared
 
 
 class ExerciseView(APIView):
@@ -36,17 +38,23 @@ class ExerciseView(APIView):
             exercises.append(ExerciseSerializer(exercise).data)
 
         if request.user.is_authenticated:
-            created_by_exercises = Exercise.objects.filter(
-                created_by=request.user
+            same_email_users = CustomUser.objects.filter(
+                email=request.user.email
             )
-            for exercise in created_by_exercises:
-                exercises.append(ExerciseSerializer(exercise).data)
+            # ------ changed part for same email users ------
+            for user in same_email_users:
+                created_by_exercises = Exercise.objects.filter(
+                    created_by=user
+                )
+                for exercise in created_by_exercises:
+                    exercises.append(ExerciseSerializer(exercise).data)
 
-            shared_with_exercises = Exercise.objects.filter(
-                shared_with=request.user
-            )
-            for exercise in shared_with_exercises:
-                exercises.append(ExerciseSerializer(exercise).data)
+                shared_with_exercises = Exercise.objects.filter(
+                    shared_with=user
+                )
+                for exercise in shared_with_exercises:
+                    exercises.append(ExerciseSerializer(exercise).data)
+            # ------ end of part for same email users ------
 
         return Response(exercises, status=status.HTTP_200_OK)
 
@@ -90,8 +98,13 @@ class ExerciseDetailView(APIView):
 
         if request.user.is_authenticated:
             if (
-                exercise.created_by == request.user or
-                request.user in exercise.shared_with.all()
+                # ------ changed part for same email users ------
+                check_user_in_created_or_shared(
+                    user=request.user,
+                    created_by=exercise.created_by,
+                    shared_with=exercise.shared_with.all()
+                )
+                # ------ end of part for same email users ------
             ):
                 return Response(
                     ExerciseSerializer(exercise).data,
@@ -113,7 +126,12 @@ class ExerciseDetailView(APIView):
 
         if (
             request.user.is_authenticated and
-            exercise.created_by == request.user
+            # ------ changed part for same email users ------
+            check_user_in_created_or_shared(
+                user=request.user,
+                created_by=exercise.created_by,
+            )
+            # ------ end of part for same email users ------
         ):
             serializer = ExerciseSerializer(
                 exercise, data=request.data, partial=True
@@ -134,9 +152,21 @@ class ExerciseDetailView(APIView):
     def delete(self, request, exercise_id):
         exercise = get_object_or_404(Exercise, pk=exercise_id)
 
+        # ------ changed part for same email users ------
+        same_email_users = CustomUser.objects.filter(
+            email=request.user.email
+        )
+        # ------ end of part for same email users ------
+
         if (
             request.user.is_authenticated and
-            exercise.created_by == request.user
+            # ------ changed part for same email users ------
+            check_user_in_created_or_shared(
+                    user=request.user,
+                    created_by=exercise.created_by,
+                    same_email_users=same_email_users,
+            )
+            # ------ end of part for same email users ------
         ):
             exercise.created_by = None
             exercise.save()
@@ -150,9 +180,17 @@ class ExerciseDetailView(APIView):
             )
         if (
             request.user.is_authenticated and
-            request.user in exercise.shared_with.all()
+            # ------ changed part for same email users ------
+            check_user_in_created_or_shared(
+                    user=request.user,
+                    shared_with=exercise.shared_with.all(),
+            )
+            # ------ end of part for same email users ------
         ):
-            exercise.shared_with.remove(request.user)
+            # ------ changed part for same email users ------
+            for user in same_email_users:
+                exercise.shared_with.remove(user)
+            # ------ end of part for same email users ------
             return Response(
                 {'message': 'Exercise removed from shared_with successfully'},
                 status=status.HTTP_200_OK
@@ -177,14 +215,21 @@ class WorkoutExerciseView(APIView):
 
         workout_exercises = []
 
-        available_for_workout_exercises = WorkoutExercise.objects.filter(
-            available_for=request.user,
-            exercise=exercise,
+        # ------ changed part for same email users ------
+        same_email_users = CustomUser.objects.filter(
+            email=request.user.email
         )
-        for workout_exercise in available_for_workout_exercises:
-            workout_exercises.append(
-                workout_exercise
+
+        for user in same_email_users:
+            available_for_workout_exercises = WorkoutExercise.objects.filter(
+                available_for=user,
+                exercise=exercise,
             )
+            for workout_exercise in available_for_workout_exercises:
+                workout_exercises.append(
+                    workout_exercise
+                )
+        # ------ end of part for same email users ------
 
         response_workout_exercises = []
         new_workout_exercises_data = []
@@ -211,12 +256,18 @@ class WorkoutExerciseView(APIView):
     def delete(self, request, exercise_id):
         exercise = get_object_or_404(Exercise, pk=exercise_id)
 
-        available_for_workout_exercises = WorkoutExercise.objects.filter(
-            available_for=request.user,
-            exercise=exercise
+        # ------ part for same email users ------
+        same_email_users = CustomUser.objects.filter(
+            email=request.user.email
         )
-        for workout_exercise in available_for_workout_exercises:
-            workout_exercise.available_for.remove(request.user)
+        for user in same_email_users:
+            available_for_workout_exercises = WorkoutExercise.objects.filter(
+                available_for=user,
+                exercise=exercise
+            )
+            for workout_exercise in available_for_workout_exercises:
+                workout_exercise.available_for.remove(user)
+        # ------ end of part for same email users ------
 
         return Response(
             {
@@ -250,8 +301,13 @@ class WorkoutDetailView(APIView):
 
         if request.user.is_authenticated:
             if (
-                workout.created_by == request.user or
-                request.user in workout.shared_with.all()
+                # ------ changed part for same email users ------
+                check_user_in_created_or_shared(
+                    created_by=workout.created_by,
+                    shared_with=workout.shared_with.all(),
+                    user=request.user,
+                )
+                # ------ end of part for same email users ------
             ):
                 return Response(
                     WorkoutSerializer(workout).data,
@@ -273,7 +329,12 @@ class WorkoutDetailView(APIView):
 
         if (
             request.user.is_authenticated and
-            workout.created_by == request.user
+            # ------ changed part for same email users ------
+            check_user_in_created_or_shared(
+                user=request.user,
+                created_by=workout.created_by,
+            )
+            # ------ end of part for same email users ------
         ):
             serializer = WorkoutSerializer(
                 workout, data=request.data, partial=True
@@ -294,9 +355,21 @@ class WorkoutDetailView(APIView):
     def delete(self, request, workout_id):
         workout = get_object_or_404(Workout, pk=workout_id)
 
+        # ------ changed part for same email users ------
+        same_email_users = CustomUser.objects.filter(
+            email=request.user.email
+        )
+        # ------ end of part for same email users ------
+
         if (
             request.user.is_authenticated and
-            workout.created_by == request.user
+            # ------ changed part for same email users ------
+            check_user_in_created_or_shared(
+                user=request.user,
+                created_by=workout.created_by,
+                same_email_users=same_email_users,
+            )
+            # ------ end of part for same email users ------
         ):
             if request.data.get(
                 'delete_from_all_shared_with', False
@@ -321,23 +394,33 @@ class WorkoutDetailView(APIView):
                 )
         if (
             request.user.is_authenticated and
-            request.user in workout.shared_with.all()
+            # ------ changed part for same email users ------
+            check_user_in_created_or_shared(
+                user=request.user,
+                shared_with=workout.shared_with.all(),
+            )
+            # ------ end of part for same email users ------
         ):
             if request.data.get(
                 'delete_all_connected_exercises_and_workout_exercises', False
             ) == 'true':
-                for exercise in workout.exercises.all():
-                    if request.user in exercise.shared_with.all():
-                        exercise.shared_with.remove(request.user)
-                    if exercise.created_by == request.user:
-                        exercise.created_by = None
-                    exercise.save()
-                for workout_exercise in workout.workout_exercises.filter(
-                    workout=workout
-                ):
-                    if request.user in workout_exercise.available_for.all():
-                        workout_exercise.shared_with.remove(request.user)
-            workout.shared_with.remove(request.user)
+                # ------ changed part for same email users ------
+                for user in same_email_users:
+                    for exercise in workout.exercises.all():
+                        if user in exercise.shared_with.all():
+                            exercise.shared_with.remove(user)
+                        if exercise.created_by == user:
+                            exercise.created_by = None
+                        exercise.save()
+                    for workout_exercise in workout.workout_exercises.filter(
+                        workout=workout
+                    ):
+                        if user in workout_exercise.available_for.all():
+                            workout_exercise.shared_with.remove(user)
+            for user in same_email_users:
+                if user in workout.shared_with.all():
+                    workout.shared_with.remove(request.user)
+            # ------ end of part for same email users ------
             return Response(
                 {'message': 'Workout removed from shared_with successfully'},
                 status=status.HTTP_200_OK
@@ -364,21 +447,30 @@ class WorkoutView(APIView):
     def get(self, request):
         workouts = []
 
+        # ------ changed part for same email users ------
+        same_email_users = CustomUser.objects.filter(
+            email=request.user.email
+        )
+        # ------ end of part for same email users ------
+
         for workout in Workout.objects.filter(is_public=True):
             workouts.append(WorkoutSerializer(workout).data)
 
         if request.user.is_authenticated:
-            created_by_workouts = Workout.objects.filter(
-                created_by=request.user
-            )
-            for workout in created_by_workouts:
-                workouts.append(WorkoutSerializer(workout).data)
+            # ------ changed part for same email users ------
+            for user in same_email_users:
+                created_by_workouts = Workout.objects.filter(
+                    created_by=user
+                )
+                for workout in created_by_workouts:
+                    workouts.append(WorkoutSerializer(workout).data)
 
-            shared_with_workouts = Workout.objects.filter(
-                shared_with=request.user
-            )
-            for workout in shared_with_workouts:
-                workouts.append(WorkoutSerializer(workout).data)
+                shared_with_workouts = Workout.objects.filter(
+                    shared_with=user
+                )
+                for workout in shared_with_workouts:
+                    workouts.append(WorkoutSerializer(workout).data)
+            # ------ end of part for same email users ------
 
         return Response(workouts, status=status.HTTP_200_OK)
 
