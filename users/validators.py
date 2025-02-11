@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError
 import re
+from PIL import Image
+
 
 
 def password_validator(password):
@@ -28,11 +30,17 @@ def password_validator(password):
     if errors:
         raise ValidationError(errors)
 
+def name_validator(value):
+    """Валидатор для проверки имени и фамилии"""
+    if not re.match(r'^[A-ZА-ЯЁ][a-zа-яё]+$', value):
+        raise ValidationError("Имя и фамилия должны начинаться с заглавной буквы и содержать только буквы.")
 
 def validate_image_size(image):
-    max_size = 200 * 1024  # 200 KB
-    if image.size > max_size:
-        raise ValidationError(
-            "Image size should not exceed 200 KB." +
-            f" Current size: {image.size / 1024:.2f} KB"
-        )
+    # Проверка, что изображение квадратное
+    img = Image.open(image)
+    if img.width != img.height:
+        raise ValidationError("Изображение должно быть квадратным.")
+    
+    # Проверка размера файла (например, не больше 5 МБ)
+    if image.size > 200 * 1024:
+        raise ValidationError("Размер файла не должен превышать 200 КБ.")

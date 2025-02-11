@@ -7,6 +7,7 @@ from users.validators import password_validator
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -22,7 +23,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
             'email',
             'password',
             'is_trainer',
-            'avatar',
         ]
         read_only_fields = ['id']
 
@@ -82,6 +82,7 @@ class CustomUserAvatarSerializer(serializers.ModelSerializer):
 
 
 class CustomUserGetSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -91,9 +92,15 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'is_trainer',
-            'user_rating'
+            'user_rating',
+            'avatar',
         ]
         read_only_fields = ['id']
+    
+    def get_avatar(self, obj):
+        if obj.avatar:
+            return f"https://{settings.AWS_S3_CUSTOM_DOMAIN}{obj.avatar}"
+        return None  
 
 
 # class RatingOfUserSerializer(serializers.ModelSerializer):

@@ -13,8 +13,7 @@ from users.views import (
                             LoginView,
                             ProfileView,
                             ChangeUserDataView,
-                            CustomUserAvatarDetailView,
-                            CustomUserAvatarView,
+                            AvatarView,
                         )
 
 urlpatterns = [
@@ -42,10 +41,9 @@ urlpatterns = [
         name='review_detail'
     ),
     path('profile/<int:profile_id>/', ProfileView.as_view(), name='profile'),
-    path('avatar/', CustomUserAvatarView.as_view(), name='avatar'),
     path(
-        'avatar/<int:user_id>/',
-        CustomUserAvatarDetailView.as_view(),
-        name='avatar_detail'
+        'avatar/',
+        AvatarView.as_view(),
+        name='avatar'
     ),
 ]

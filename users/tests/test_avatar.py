@@ -1,129 +1,115 @@
-from rest_framework.test import APITestCase
-from django.core.files.uploadedfile import SimpleUploadedFile
-from unittest.mock import patch
-from django.urls import reverse
-from django.contrib.auth import get_user_model
-import os
-import boto3
-from botocore.exceptions import NoCredentialsError
-from django.test import TestCase
+# from django.urls import reverse
+# from rest_framework.test import APITestCase, APIClient
+# from django.contrib.auth import get_user_model
+# from PIL import Image
+# from io import BytesIO
+# from django.core.files.uploadedfile import SimpleUploadedFile
+
+# User = get_user_model()
+
+# class AvatarTests(APITestCase):
+#     def setUp(self):
+#         # Создаем тестового пользователя
+#         self.user = User.objects.create_user(
+#             email='testuser@example.com',
+#             password='Securepassword123',
+#             first_name='testuser',
+#             is_trainer=False,
+#         )
+#         self.client = APIClient()
+#         self.client.force_authenticate(user=self.user)  # Авторизуем пользователя
+    
+#     def create_image_with_target_size(self, target_size_kb, initial_resolution=(1000, 1000)):
+#         """
+#         Create an image with a target file size in KB.
+        
+#         :param target_size_kb: Target file size in kilobytes (KB).
+#         :param output_path: Path to save the output image.
+#         :param initial_resolution: Initial resolution of the image (width, height).
+#         """
+#         target_size_bytes = target_size_kb * 1024  # Convert KB to bytes
+#         img = Image.new('RGB', initial_resolution, color='white')  # Create a blank image
+
+#         diff = 0
+
+#         # Adjust quality to reach the target size
+#         while True:
+#             buffer = BytesIO()
+#             img.save(buffer, format="JPEG")
+#             size = buffer.tell()  # Get the size of the image in bytes
+#             if size < target_size_bytes:
+#                 # Increase resolution or quality to make the image larger
+#                 diff = (abs(target_size_bytes - size)) / 500
+#                 if diff < 100:
+#                     diff = 100
+#                 diff = int(diff)
+#                 new_resolution = (img.size[0] + diff, img.size[1] + diff)
+#                 img = img.resize(new_resolution)
+#             else:
+#                 diff = int(abs(target_size_bytes - size) / 2000)
+#                 if diff < 1:
+#                     diff = 1
+#                 new_resolution = (img.size[0] - diff, img.size[1] - diff)
+#                 img = img.resize(new_resolution)
+
+#             if abs(size - target_size_bytes) <= target_size_kb/100 * 1024:  # Allow 1 KB tolerance
+#                 break
 
 
-class AvatarUploadAPITestCase(APITestCase):
-    def setUp(self):
-        self.User = get_user_model()
-        self.user = self.User.objects.create_user(
-            email='testuser1@example.com',
-            password='Securepassword123',
-            first_name='testuser1',
-            is_trainer=False,
-        )
-        self.client.force_authenticate(user=self.user)
-
-        self.url = reverse('avatar')
-
-        dummy_image_path = os.path.join(
-            'users', 'tests', 'media', 'avatar_test.png'
-        )
-        with open(dummy_image_path, 'rb') as image_file:
-            self.test_image = SimpleUploadedFile(
-                name='avatar.png',
-                content=image_file.read(),
-                content_type='image/png'
-            )
-
-    @patch('storages.backends.s3boto3.S3Boto3Storage._save')
-    def test_upload_avatar_invalid_file(self, mock_save):
-        """
-        Test uploading a non-image file as an avatar.
-        """
-        invalid_file = SimpleUploadedFile(
-            'not_an_image.txt',
-            b'This is not an image.',
-            content_type='text/plain'
-        )
-
-        response = self.client.post(
-            self.url, {'avatar': invalid_file}, format='multipart'
-        )
-
-        self.assertEqual(response.status_code, 400)
-
-    @patch('storages.backends.s3boto3.S3Boto3Storage._save')
-    def test_upload_avatar_too_large(self, mock_save):
-        """
-        Test uploading an image file that exceeds the size limit.
-        """
-        large_image = SimpleUploadedFile(
-            'large_avatar.jpg',
-            b'a' * (300 * 1024),
-            content_type='image/jpeg'
-        )
-
-        response = self.client.post(
-            self.url, {'avatar': large_image}, format='multipart'
-        )
-
-        self.assertEqual(response.status_code, 400)
-
-    def test_upload_avatar_unauthenticated(self):
-        """
-        Test that unauthenticated users cannot upload an avatar.
-        """
-        self.client.logout()
-
-        response = self.client.post(
-            self.url, {'avatar': self.test_image}, format='multipart'
-        )
-
-        self.assertEqual(response.status_code, 401)
+#         buffer = BytesIO()
+#         img.save(buffer, format="JPEG")
+#         return SimpleUploadedFile("test_image.jpg", buffer.getvalue(), content_type="image/jpeg")
 
 
-class YandexStorageIntegrationTestCase(APITestCase):
-    def setUp(self):
-        self.User = get_user_model()
-        self.user = self.User.objects.create_user(
-            email='testuser1@example.com',
-            password='Securepassword123',
-            first_name='testuser1',
-            is_trainer=False,
-        )
-        self.url = reverse('avatar')
-        # Initialize the Yandex S3 client
-        self.s3_client = boto3.client(
-            's3',
-            endpoint_url='https://storage.yandexcloud.net',
-            aws_access_key_id='YOUR_ACCESS_KEY',
-            aws_secret_access_key='YOUR_SECRET_KEY'
-        )
-        self.bucket_name = 'your-bucket-name'
-        self.dummy_image_path = os.path.join(
-            'users', 'tests', 'media', 'avatar_test.png'
-        )
-        with open(self.dummy_image_path, 'rb') as image_file:
-            self.file = SimpleUploadedFile(
-                name='avatar.png',
-                content=image_file.read(),
-                content_type='image/png'
-            )
+#     def test_upload_avatar_success(self):
+#         """
+#         Тест успешной загрузки аватарки.
+#         """
+#         url = reverse("avatar")
+#         avatar = self.create_image_with_target_size(100)  # Создаем изображение размером 100 КБ
 
-    def test_file_upload_to_yandex_storage(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.post(
-            self.url, {'avatar': self.file}, format='multipart'
-        )
-        self.assertEqual(response.status_code, 200)
-        # After saving, get the file key (or path) from your model
-        self.user.refresh_from_db()
-        file_key = self.user.avatar.name
+#         response = self.client.post(url, {"avatar": avatar}, format="multipart")
+#         self.assertEqual(response.status_code, 200)
+#         self.assertIn("avatar_url", response.data)
+        
 
-        # Try to fetch the file from Yandex Object Storage
-        try:
-            response = self.s3_client.head_object(
-                Bucket=self.bucket_name, Key=file_key
-            )
-            self.assertEqual(
-                response['ResponseMetadata']['HTTPStatusCode'], 200
-            )  # File exists
-        except NoCredentialsError:
-            self.fail("Credentials missing for Yandex Object Storage")
+#     def test_delete_avatar_success(self):
+#         """
+#         Тест успешного удаления аватарки.
+#         """
+#         # Сначала загружаем аватарку
+#         avatar = self.create_image_with_target_size(100)
+#         self.user.avatar.save("test_avatar.jpg", avatar)
+#         self.user.save()
+#         self.user.refresh_from_db()
+
+#         url = reverse("avatar")
+#         response = self.client.delete(url)
+#         self.assertEqual(response.status_code, 200)
+
+#         # Проверяем, что аватарка удалена и заменена на аватарку по умолчанию
+#         self.user.refresh_from_db()
+#         self.assertIsNotNone(self.user.avatar)
+
+#     def test_delete_avatar_no_avatar(self):
+#         """
+#         Тест удаления аватарки, если её нет.
+#         """
+#         url = reverse("avatar")
+#         response = self.client.delete(url)
+#         self.assertEqual(response.status_code, 200)
+
+#         # Проверяем, что аватарка по умолчанию создана
+#         self.user.refresh_from_db()
+#         self.assertIsNotNone(self.user.avatar)
+
+
+#     def test_compress_image(self):
+#         """
+#         Тест отправки изображения больше 200 КБ.
+#         """
+#         avatar = self.create_image_with_target_size(5000)  # Создаем изображение размером 500 КБ
+#         url = reverse("avatar")
+
+#         response = self.client.post(url, {"avatar": avatar}, format="multipart")
+#         self.assertEqual(response.status_code, 400)

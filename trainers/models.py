@@ -3,6 +3,8 @@ from django.contrib.postgres.indexes import GinIndex
 from datetime import date
 from decimal import Decimal
 from users.models import CustomUser
+from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.db.models.functions import Lower
 
 
 class CategoryOfTrainers(models.Model):
@@ -20,7 +22,7 @@ class Trainer(models.Model):
         related_name='trainer'
     )
     description = models.CharField(max_length=500, blank=True)
-    address = models.CharField(max_length=255, blank=True)  # Адрес зала
+    is_able_to_visit = models.BooleanField(default=False)
     is_public = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     is_male = models.BooleanField(default=True)
@@ -39,9 +41,7 @@ class Trainer(models.Model):
 
     class Meta:
         indexes = [
-            GinIndex(
-                fields=['description'],
-            )
+            GinIndex(OpClass(Lower('description'), name='gin_trgm_ops'), name='description_gin_trgm_idx'),
         ]
 
     def __str__(self):
@@ -67,6 +67,16 @@ class Trainer(models.Model):
                 start_time='10:00:00',
                 end_time='18:00:00'
             )
+
+
+class Gym(models.Model):
+    address = models.CharField(max_length=255)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    trainer = models.ForeignKey('Trainer', on_delete=models.CASCADE, related_name='gyms')
+
+    def __str__(self):
+        return self.address
 
 
 class WeekDay(models.Model):

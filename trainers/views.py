@@ -10,6 +10,7 @@ from trainers.models import (
     WorkHours,
     Experience,
     WholeExperience,
+    Gym,
 )
 from django.contrib.postgres.search import (
     SearchQuery,
@@ -17,25 +18,27 @@ from django.contrib.postgres.search import (
     TrigramSimilarity,
     SearchVector,
 )
-from django.db.models import Q
 from trainers.serializers import (
     TrainerSerializer,
     TrainerGetSerializer,
     WorkHoursSerializer,
     ExperienceSerializer,
     WholeExperienceSerializer,
+    GymSerializer,
 )
 from trainers.permissions import (
     IsTrainer,
     IsClient,
     choose_what_to_return_for_trainer
 )
+from django.db.models import Q, Value, CharField
+from django.db.models.functions import Concat
 
 
 class TrainerDetailView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    http_method_names = ['get', 'put', 'delete']
+    http_method_names = ['get']
 
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -67,6 +70,30 @@ class TrainerDetailView(APIView):
             trainer_of_user
         )
 
+class TrainerChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    http_method_names = ['put']
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsTrainer()]
+    
+    def put(self, request):
+        user = request.user
+        trainer = get_object_or_404(Trainer, pk=user.trainer.id)
+
+        serializer = TrainerSerializer(
+            trainer, data=request.data, partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Trainer updated successfully'},
+                            status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        
+
 
 class TrainerSearchView(APIView):
     def get_permissions(self):
@@ -76,100 +103,53 @@ class TrainerSearchView(APIView):
         # Require authentication for other methods
         return [IsAuthenticated()]
 
-    def get(self, request, pk=None):
-        if pk:
-            trainer = get_object_or_404(Trainer, pk=pk)
-            trainer_of_user = trainer.clients_of_trainer
-            serializer = TrainerGetSerializer(trainer)
-            if (
-                request.user.is_authenticated and
-                request.user.trainer == trainer
-            ):
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            if trainer.is_active:
-                if trainer.is_public:
-                    return Response(serializer.data, status=status.HTTP_200_OK)
-                else:
-                    if (
-                        request.user.is_authenticated and
-                        trainer_of_user.found_by_link
-                    ):
-                        return Response(
-                            serializer.data,
-                            status=status.HTTP_200_OK
-                        )
-                    else:
-                        return Response({'message': 'Trainer is not public'},
-                                        status=status.HTTP_400_BAD_REQUEST)
-            return Response(
-                {'message': 'Trainer is not active'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    
+    def get(self, request):
         # Получаем строку поиска
-        search_query = request.query_params.get('search', '')
-        if not search_query:
+        query = request.query_params.get('search', '')
+        if not query:
             return Response({'trainers': []})  # Пустой запрос
 
-        # Разделяем строку поиска на слова
-        tokens = search_query.split()
+        # Разделяем запрос на слова
+        words = query.split()
 
-        # Массив для фильтров
-        filters = Q()
-        trigram_scores = []
-
-        for token in tokens:
-            # Генерация фильтров
-            filters |= Q(user__first_name__trigram_similar=token)
-            filters |= Q(user__last_name__trigram_similar=token)
-            filters |= Q(description__trigram_similar=token)
-            filters |= Q(is_public=True)
-
-            # Триграммные ранги для сортировки
-            trigram_scores.append(
-                TrigramSimilarity('user__first_name', token) +
-                TrigramSimilarity('user__last_name', token) +
-                TrigramSimilarity('description', token)
+        # Создаем условия для триграммного поиска
+        trigram_conditions = Q()
+        for word in words:
+            trigram_conditions |= (
+                Q(user__first_name__trigram_similar=word) |
+                Q(user__last_name__trigram_similar=word) |
+                Q(description__icontains=word) |
+                Q(description__trigram_similar=word)
             )
 
-        # Общий trigram_score для сортировки
-        combined_trigram_score = sum(trigram_scores)
-
-        # Полнотекстовый запрос
-        search_vector = SearchVector('user__first_name',
-                                     'user__last_name',
-                                     'description')
-        search_query = SearchQuery(search_query, search_type='plain')
-
-        # Выполняем поиск
-        trainers = Trainer.objects.annotate(
-            # Ранг полнотекстового поиска
-            rank=SearchRank('search_vector', search_vector),
-            trigram_score=combined_trigram_score  # Итоговый триграммный ранг
-        ).filter(
-            filters
-        ).order_by(
-            '-rank',  # Сначала по полнотекстовому рангу
-            '-trigram_score'  # Затем по триграммной схожести
+        # Создаем условия для полнотекстового поиска
+        search_vector = (
+            SearchVector('user__first_name', weight='A') +
+            SearchVector('user__last_name', weight='A') +
+            SearchVector('description', weight='B')
         )
+        search_query = SearchQuery(query, search_type='plain')
+        search_rank = SearchRank(search_vector, search_query)
+
+        # Ищем тренеров, соответствующих условиям
+        trainers = Trainer.objects.annotate(
+            full_name=Concat(
+                'user__first_name', Value(' '), 'user__last_name',
+                output_field=CharField()
+            ),
+            similarity=(
+                TrigramSimilarity('user__first_name', query) +
+                TrigramSimilarity('user__last_name', query) +
+                TrigramSimilarity('description', query) +
+                TrigramSimilarity('full_name', query)
+            ),
+            rank=search_rank
+        ).filter(trigram_conditions).order_by('-rank', '-similarity')
+
         serializer_trainers = TrainerGetSerializer(trainers, many=True)
 
         return Response(serializer_trainers.data, status=status.HTTP_200_OK)
-
-    def put(self, request, pk):
-        trainer = get_object_or_404(Trainer, pk=pk)
-        if request.user.trainer != trainer:
-            return Response(
-                {'message': 'You are not authorized to edit this trainer.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        serializer = TrainerSerializer(
-            trainer, data=request.data, partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Trainer updated successfully'},
-                            status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class WorkHoursGetPutView(APIView):
@@ -368,4 +348,66 @@ class ExperienceView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GymCreateView(APIView):
+    http_method_names = ['post']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsTrainer()]
+    
+    def post(self, request):
+        serializer = GymSerializer(data=request.data)
+        if serializer.is_valid():
+            gym = serializer.save(trainer=request.user.trainer)
+            return Response({
+                'message': 'Gym created successfully!',
+                'gym_id': gym.id
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class GymChangeView(APIView):
+    http_method_names = ['delete', 'put']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsTrainer()]
+    
+    def delete(self, request, gymId):
+        gym = get_object_or_404(Gym, pk=gymId)
+        if gym.trainer == request.user.trainer:
+            gym.delete()
+        
+        else:
+            return Response(
+                {'message': 'You are not authorized to delete this gym.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return Response(
+            {'message': 'Gym deleted successfully'},
+            status=status.HTTP_200_OK
+        )
+    
+    def put(self, request, gymId):
+
+        gym = get_object_or_404(Gym, pk=gymId)
+
+        if request.user.trainer != gym.trainer:
+            return Response(
+                {'message': 'You are not authorized to edit this trainer.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = GymSerializer(
+            gym, data=request.data, partial=True
+        )
+        if serializer.is_valid():
+            serializer.save(trainer=request.user.trainer)
+            return Response(serializer.data,
+                            status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -7,7 +7,9 @@ from trainers.models import (Trainer,
                              WorkHours,
                              Experience,
                              WholeExperience,
+                             Gym,
                              )
+from django.conf import settings
 
 
 class WeekDaySerializer(serializers.ModelSerializer):
@@ -78,6 +80,12 @@ class WholeExperienceSerializer(serializers.ModelSerializer):
         fields = ['id', 'trainer', 'experience']
         read_only_fields = ['id']
 
+class GymSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Gym
+        fields = ['id', 'address', 'latitude', 'longitude']
+        read_only_fields = ['id']
+
 
 class TrainerGetSerializer(serializers.ModelSerializer):
     weekends = serializers.PrimaryKeyRelatedField(
@@ -94,18 +102,25 @@ class TrainerGetSerializer(serializers.ModelSerializer):
         many=True, queryset=Holiday.objects.all()
     )
     whole_experience = WholeExperienceSerializer(read_only=True)
+    avatar = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
+    gyms = GymSerializer(many=True, read_only=True)
 
     class Meta:
         model = Trainer
         fields = [
             'id',
+            'first_name',
+            'last_name',
             'user',
             'description',
-            'address',
             'is_public',
             'is_active',
             'is_male',
-            'price_per_hour',
+            'gyms',
+            'is_able_to_visit',
+            'price_per_minimum_workout_duration',
             'minimum_workout_duration',
             'workout_duration_devided_by_value',
             'weekends',
@@ -113,18 +128,32 @@ class TrainerGetSerializer(serializers.ModelSerializer):
             'breaks',
             'holidays',
             'whole_experience',
+            'avatar',
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'gyms']
+    
+    def get_avatar(self, obj):
+        if obj.user.avatar:
+            return f"https://{settings.AWS_S3_CUSTOM_DOMAIN}{obj.user.avatar}"
+        return None
+    
+    def get_first_name(self, obj):
+        return obj.user.first_name
+    
+    def get_last_name(self, obj):
+        return obj.user.last_name
 
 
 class TrainerSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
     class Meta:
         model = Trainer
         fields = [
             'id',
             'user',
             'description',
-            'address',
+            'is_able_to_visit',
             'is_public',
             'is_active',
             'is_male',
@@ -133,3 +162,8 @@ class TrainerSerializer(serializers.ModelSerializer):
             'workout_duration_devided_by_value',
         ]
         read_only_fields = ['id']
+    
+    def get_avatar(self, obj):
+        if obj.user.avatar:
+            return f"https://{settings.AWS_S3_CUSTOM_DOMAIN}{obj.user.avatar}"
+        return None

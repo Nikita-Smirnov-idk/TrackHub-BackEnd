@@ -15,6 +15,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth.models import BaseUserManager
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+from PIL import Image
+from django.core.files.base import ContentFile
+from io import BytesIO
 
 
 class CustomUserRegisterView(APIView):
@@ -29,60 +32,6 @@ class CustomUserRegisterView(APIView):
             return Response(serializer.data,
                             status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CustomUserAvatarView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['put', 'post']
-
-    def get_permissions(self):
-        return [IsAuthenticated()]
-
-    def put(self, request):
-        user = request.user
-        serializer = CustomUserAvatarSerializer(
-            user, data=request.data, partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request):
-        user = request.user
-        serializer = CustomUserAvatarSerializer(
-            user, data=request.data, partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CustomUserAvatarDetailView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
-
-    def get_permissions(self):
-        return [AllowAny()]
-
-    def get(self, request, user_id):
-        try:
-            user = get_object_or_404(CustomUser, pk=user_id)
-        except Exception:
-            return Response({"error": "Profile not found"},
-                            status=status.HTTP_404_NOT_FOUND)
-        serializer = CustomUserAvatarSerializer(
-            user, context={'request': request}
-        )
-        if request.user.id == user_id:
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        if not user.is_public:
-            return Response({"error": "Access denied"},
-                            status=status.HTTP_403_FORBIDDEN)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AccountDeletionView(APIView):
@@ -331,3 +280,52 @@ class ReviewView(APIView):
         review = Review.objects.filter(for_user=request.data['for_user_id'])
         serializer_review = ReviewSerializer(review, many=True)
         return Response(serializer_review.data, status=status.HTTP_200_OK)
+
+
+class AvatarView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post', 'delete']
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def post(self, request, *args, **kwargs):
+
+        user = request.user
+        avatar = request.FILES.get('avatar')
+
+        if not avatar:
+            return Response({"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Проверка размера файла (не более 5 МБ)
+        if avatar.size > 200 * 1024:  # 5 МБ в байтах
+            return Response({"error": "File size exceeds 200 KB."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Открываем изображение
+            image = Image.open(avatar)
+            # Удаляем старую аватарку, если она есть
+            if user.avatar:
+                user.avatar.delete(save=False)
+            
+            buffer = BytesIO()
+            image.save(buffer, format="JPEG")
+
+            # Сохраняем сжатое изображение
+            user.avatar.save(avatar.name, ContentFile(buffer.getvalue()), save=False)
+            user.save()
+            
+            return Response({"avatar_url": user.avatar.url}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self, request):
+        user = request.user
+        # Delete the avatar from S3 if it exists
+        if user.avatar:
+            user.avatar.delete(save=False)  # Delete the file from S3
+            user.avatar = None  # Set the avatar field to None
+            user.save()
+        
+        return Response(status=status.HTTP_200_OK)
