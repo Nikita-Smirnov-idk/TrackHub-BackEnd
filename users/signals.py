@@ -6,12 +6,15 @@ from django.dispatch import receiver
 
 @receiver(post_migrate)
 def create_superuser(sender, **kwargs):
-    if sender.name == 'scripts':
+    if sender.name == 'users':
         User = get_user_model()
-        if not User.objects.filter(email='admin@admin.com').exists():
+        email=os.environ.get('DJANGO_SUPERUSER_EMAIL', 'sc@example.com')
+        password=os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'asdASDASD123')
+        print(email, password)
+        if not User.objects.filter(email=email).exists():
             User.objects.create_superuser(
-                email=os.environ.get('DJANGO_SUPERUSER_EMAIL', 'sc@example.com'),
-                password=os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'asdASDASD123'),
+                email=email,
+                password=password,
             )
             print("Superuser created.")
         else:
