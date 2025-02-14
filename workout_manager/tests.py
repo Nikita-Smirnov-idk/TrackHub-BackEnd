@@ -20,20 +20,17 @@ class ExerciseViewTests(APITestCase):
         self.user = self.User.objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
-            is_trainer=True,
+            first_name='Testuser',
         )
         self.user_2 = self.User.objects.create_user(
             email='testuser2@example.com',
             password='Securepassword123',
-            first_name='testuser2',
-            is_trainer=True,
+            first_name='Testusertwo',
         )
         self.user_3 = self.User.objects.create_user(
             email='testuser3@example.com',
             password='Securepassword123',
-            first_name='testuser3',
-            is_trainer=True,
+            first_name='Testuserthree',
         )
         self.exercise_url = reverse('exercises')
         self.detail_exercise_url = 'exercise_detail'
@@ -365,14 +362,12 @@ class WorkoutExerciseViewTests(APITestCase):
         self.user = self.User.objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
-            is_trainer=False,
+            first_name='Testuser',
         )
         self.user_2 = self.User.objects.create_user(
             email='testuser2@example.com',
             password='Securepassword123',
-            first_name='testuser2',
-            is_trainer=False,
+            first_name='Testusertwo',
         )
         self.workout_url = 'workout_exercises'
 
@@ -519,14 +514,12 @@ class WorkoutViewTests(APITestCase):
         self.user = self.User.objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
-            is_trainer=False,
+            first_name='Testuser',
         )
         self.user_2 = self.User.objects.create_user(
             email='testuser2@example.com',
             password='Securepassword123',
-            first_name='testuser2',
-            is_trainer=False,
+            first_name='Testusertwo',
         )
         self.workout_url = reverse('workouts')
         self.detail_workout_url = 'workout_detail'

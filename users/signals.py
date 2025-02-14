@@ -1,24 +1,18 @@
-from django.db.models.signals import post_save
+import os
+
+from django.contrib.auth import get_user_model
+from django.db.models.signals import post_migrate
 from django.dispatch import receiver
-from users.models import CustomUser
-from clients.models import Client
-from trainers.models import Trainer
 
-
-@receiver(post_save, sender=CustomUser)
-def create_client_for_user(sender, instance, created, **kwargs):
-    """
-    Signal to create a Client and Trainer instance if the User instance has
-    no related Client and Trainer.
-    """
-    if created:
-        if not instance.is_trainer:
-            Client.objects.get_or_create(
-                is_active=(not instance.is_trainer),
-                user=instance,
+@receiver(post_migrate)
+def create_superuser(sender, **kwargs):
+    if sender.name == 'scripts':
+        User = get_user_model()
+        if not User.objects.filter(email='admin@admin.com').exists():
+            User.objects.create_superuser(
+                email=os.environ.get('DJANGO_SUPERUSER_EMAIL', 'sc@example.com'),
+                password=os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'asdASDASD123'),
             )
-        if instance.is_trainer:
-            Trainer.objects.get_or_create(
-                user=instance,
-                is_active=instance.is_trainer,
-            )
+            print("Superuser created.")
+        else:
+            print("Superuser already exists.")

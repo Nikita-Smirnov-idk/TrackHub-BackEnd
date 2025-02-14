@@ -9,13 +9,10 @@ from users.validators import (
     validate_image_size,
     name_validator,
 )
-from django.contrib.postgres.indexes import GinIndex
 import boto3
 from django.core.exceptions import ImproperlyConfigured
 from TrackHub.trackhub_bucket import TrackHubMediaStorage
 from users.image_handler import generate_default_avatar
-from django.contrib.postgres.indexes import GinIndex, OpClass
-from django.db.models.functions import Lower
 
 
 class CustomUserManager(BaseUserManager):
@@ -27,20 +24,15 @@ class CustomUserManager(BaseUserManager):
         self,
         email,
         password=None,
-        is_trainer=False,
         **extra_fields
     ):
         if not email:
             raise ValueError('The Email field is required')
         email = self.normalize_email(email)
-        unique_identifier = f"{email}:{is_trainer}"
-        extra_fields.pop('unique_identifier', None)
 
 
         user = self.model(
             email=email,
-            is_trainer=is_trainer,
-            unique_identifier=unique_identifier,
             **extra_fields
         )
         if password:
@@ -53,9 +45,9 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
+
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault("is_trainer", True)
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -69,7 +61,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model.
     """
-    email = models.EmailField(validators=[EmailValidator()])
+    email = models.EmailField(validators=[EmailValidator()], unique=True)
     password = models.CharField(max_length=128,
                                 validators=[password_validator])
     avatar = models.ImageField(
@@ -80,33 +72,20 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         upload_to="avatars/"
     )
 
-    unique_identifier = models.CharField(max_length=512, unique=True)
-    username = None
-
     first_name = models.CharField(max_length=150, blank=True, validators=[name_validator])
     last_name = models.CharField(max_length=150, blank=True, validators=[name_validator])
+
     is_public = models.BooleanField(default=True)
     is_online = models.BooleanField(default=True)
+
     is_staff = models.BooleanField(default=False)
-    is_trainer = models.BooleanField(default=False)  # Custom field
+    is_active = models.BooleanField(default=False)
+
     timezone = models.CharField(max_length=50, default='UTC')
 
     objects = CustomUserManager()
 
-    USERNAME_FIELD = 'unique_identifier'
-    REQUIRED_FIELDS = ['email']
-
-    class Meta:
-        indexes = [
-            GinIndex(OpClass(Lower('first_name'), name='gin_trgm_ops'), name='first_name_gin_trgm_idx'),
-            GinIndex(OpClass(Lower('last_name'), name='gin_trgm_ops'), name='last_name_gin_trgm_idx'),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['email', 'is_trainer'],
-                name='unique_email_is_trainer',
-            )
-        ]
+    USERNAME_FIELD = 'email'
 
     def __str__(self):
         return self.email
@@ -124,13 +103,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
                 old_avatar_path = old_instance.avatar.name
                 self.delete_old_image_from_yandex_storage(old_avatar_path)
 
-        # Save the new avatar
-
-        if not self.unique_identifier:
-            self.unique_identifier = f"{self.email}:{self.is_trainer}"
-
-        self.first_name = self.first_name.capitalize()
-        self.last_name = self.last_name.capitalize()
+        if self.first_name:
+            self.first_name = self.first_name.capitalize()
+        if self.last_name:
+            self.last_name = self.last_name.capitalize()
 
         # Сохраняем объект User
         super().save(*args, **kwargs)

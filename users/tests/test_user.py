@@ -18,20 +18,18 @@ class UserCreationTestCase(TestCase):
         user = self.User.objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
-            is_trainer=False,
+            first_name='Testuser',
         )
         self.assertEqual(user.email, 'testuser@example.com')
         self.assertTrue(user.check_password('Securepassword123'))
-        self.assertEqual(user.first_name, 'testuser')
-        self.assertFalse(user.is_trainer)
+        self.assertEqual(user.first_name, 'Testuser')
         self.assertIsNotNone(user.user_rating)
 
     def test_create_superuser(self):
         superuser = self.User.objects.create_superuser(
             email='admin@example.com',
             password='Secureadmin123',
-            first_name='admin'
+            first_name='Admin'
         )
         self.assertEqual(superuser.email, 'admin@example.com')
         self.assertTrue(superuser.is_staff)
@@ -42,7 +40,7 @@ class UserCreationTestCase(TestCase):
             self.User.objects.create_user(
                 email=None,
                 password='Securepassword123',
-                first_name='testuser'
+                first_name='Testuser'
             )
 
     def test_create_superuser_missing_permissions(self):
@@ -50,7 +48,7 @@ class UserCreationTestCase(TestCase):
             self.User.objects.create_superuser(
                 email='admin@example.com',
                 password='Secureadmin123',
-                first_name='admin',
+                first_name='Admin',
                 is_staff=False,
                 is_superuser=False
             )
@@ -59,13 +57,13 @@ class UserCreationTestCase(TestCase):
         self.User.objects.create_user(
             email='unique@example.com',
             password='Password123',
-            first_name='uniqueuser'
+            first_name='Uniqueuser'
         )
         with self.assertRaises(Exception):
             self.User.objects.create_user(
                 email='unique@example.com',
                 password='Password123',
-                first_name='anotheruser'
+                first_name='Anotheruser'
             )
 
     def test_create_user_with_wrong_password_form(self):
@@ -73,8 +71,7 @@ class UserCreationTestCase(TestCase):
             self.User.objects.create_user(
                 email='testuser@example.com',
                 password='secur',
-                first_name='testuser',
-                is_trainer=False,
+                first_name='Testuser',
             )
 
     def test_create_user_with_wrong_email_form(self):
@@ -82,8 +79,7 @@ class UserCreationTestCase(TestCase):
             self.User.objects.create_user(
                 email='example.com',
                 password='Password123',
-                first_name='testuser',
-                is_trainer=False,
+                first_name='Testuser',
             )
 
 
@@ -93,8 +89,7 @@ class JWTAuthenticationTests(APITestCase):
         self.user = get_user_model().objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
-            is_trainer=False,
+            first_name='Testuser',
         )
 
         # Эндпоинты для работы с JWT
@@ -106,7 +101,7 @@ class JWTAuthenticationTests(APITestCase):
     def test_obtain_tokens(self):
         """Проверка получения токенов (Access и Refresh)"""
         response = self.client.post(self.token_obtain_url, {
-            'unique_identifier': 'testuser@example.com:False',
+            'email': 'testuser@example.com',
             'password': 'Securepassword123',
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -128,7 +123,7 @@ class JWTAuthenticationTests(APITestCase):
         """Проверка обновления Access Token с помощью Refresh Token"""
         # Получаем токены
         response = self.client.post(self.token_obtain_url, {
-            'unique_identifier': 'testuser@example.com:False',
+            'email': 'testuser@example.com',
             'password': 'Securepassword123',
         })
         refresh_token = response.data['refresh']
@@ -144,7 +139,7 @@ class JWTAuthenticationTests(APITestCase):
         """Проверка добавления Refresh Token в чёрный список при logout"""
         # Получаем токены
         response = self.client.post(self.token_obtain_url, {
-            'unique_identifier': 'testuser@example.com:False',
+            'email': 'testuser@example.com',
             'password': 'Securepassword123',
         })
         access_token = response.data['access']
@@ -180,8 +175,7 @@ class AccountDeletionViewTests(APITestCase):
         self.user = get_user_model().objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
-            is_trainer=False,
+            first_name='Testuser',
         )
         self.client.force_authenticate(user=self.user)
 
@@ -247,22 +241,19 @@ class RegisterViewTests(APITestCase):
         self.valid_data = {
             'email': 'testuser@example.com',
             'password': 'Securepassword123',
-            'first_name': 'testuser',
-            'is_trainer': False,
+            'first_name': 'Testuser',
         }
 
         self.invalid_password_data = {
             'email': 'testuser@example.com',
             'password': 'secur',
-            'first_name': 'testuser',
-            'is_trainer': False,
+            'first_name': 'Testuser',
         }
 
         self.invalid_email_data = {
             'email': '@example.com',
             'password': 'Securepassword123',
-            'first_name': 'testuser',
-            'is_trainer': False,
+            'first_name': 'Testuser',
         }
 
         self.register_url = reverse("register")
@@ -279,11 +270,6 @@ class RegisterViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(get_user_model().objects.
                              get(email=self.valid_data['email']))
-        self.assertIsNotNone(
-            get_user_model().objects.filter(
-                email=self.valid_data['email']
-            ).first().client
-        )
         self.assertTrue(
             get_user_model().objects.filter(
                 email=self.valid_data['email']
@@ -411,14 +397,12 @@ class ReviewCreationTestCase(APITestCase):
         self.user_1 = self.User.objects.create_user(
             email='testuser1@example.com',
             password='Securepassword123',
-            first_name='testuser1',
-            is_trainer=False,
+            first_name='Testuserone',
         )
         self.user_2 = self.User.objects.create_user(
             email='testuser2@example.com',
             password='Securepassword123',
-            first_name='testuser2',
-            is_trainer=False,
+            first_name='Testusertwo',
         )
         self.create_url = reverse("review")
         self.detail_review_url = "review_detail"
@@ -518,42 +502,45 @@ class ProfileTestCase(APITestCase):
         self.user = self.user_model.objects.create_user(
             email='testuser1@example.com',
             password='Securepassword123',
-            first_name='testuser1',
-            is_trainer=False,
+            first_name='Testuserone',
+            last_name='Testuserone',
         )
 
     def test_put_authenticated_user_with_valid_data(self):
         self.client.force_authenticate(user=self.user)
         response = self.client.put(reverse(self.profile_url,
                                            args=[self.user.pk]),
-                                   data={'is_trainer': True,
+                                   data={'first_name': 'Artaman',
                                          },)
+        self.user.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['is_trainer'],
+        self.assertEqual(response.data['first_name'],
                          self.user_model.objects.
-                         get(email=self.user.email).is_trainer)
+                         get(email=self.user.email).first_name)
 
     def test_put_unauthenticated_user_with_valid_data(self):
         response = self.client.put(reverse(self.profile_url,
                                            args=[self.user.pk]),
-                                   data={'is_trainer': True,
+                                   data={'first_name': 'Artaman',
                                          },)
+        self.user.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(self.user_model.objects.
-                         get(email=self.user.email).is_trainer, False)
+        self.assertNotEqual(self.user_model.objects.
+                         get(email=self.user.email).first_name, 'Artaman')
 
     def test_put_authenticated_user_with_more_valid_data(self):
         self.client.force_authenticate(user=self.user)
         response = self.client.put(reverse(self.profile_url,
                                            args=[self.user.pk]),
                                    data={'email': 'testuser2@example.com',
-                                         'first_name': 'testuser2',
-                                         'is_trainer': True,
+                                         'first_name': 'Testuser',
+                                         'last_name': 'Artamanov',
                                          },)
+        self.user.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['is_trainer'],
+        self.assertEqual(response.data['last_name'],
                          self.user_model.objects.
-                         get(email=response.data['email']).is_trainer)
+                         get(email=response.data['email']).last_name)
         self.assertEqual(response.data['first_name'],
                          self.user_model.objects.
                          get(email=response.data['email']).first_name)
@@ -565,8 +552,7 @@ class ProfileTestCase(APITestCase):
         user3 = self.user_model.objects.create_user(
             email='testuser3@example.com',
             password='Securepassword123',
-            first_name='testuser3',
-            is_trainer=False,
+            first_name='Testuserthree',
             is_public=True,
         )
         self.client.force_authenticate(user=self.user)
@@ -576,14 +562,13 @@ class ProfileTestCase(APITestCase):
         self.assertEqual(response.data['email'],
                          'testuser3@example.com')
         self.assertEqual(response.data['first_name'],
-                         'testuser3')
+                         'Testuserthree')
 
     def test_get_not_authenticated_user_without_public(self):
         user3 = self.user_model.objects.create_user(
             email='testuser3@example.com',
             password='Securepassword123',
-            first_name='testuser3',
-            is_trainer=False,
+            first_name='Testuserthree',
             is_public=False,
         )
         response = self.client.get(reverse(self.profile_url,
