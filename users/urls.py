@@ -15,6 +15,7 @@ from users.views import (
                             ChangeUserDataView,
                             AvatarView,
                             VerifyEmailView,
+                            SendVerificationEmailView,
                         )
 
 urlpatterns = [
@@ -48,4 +49,5 @@ urlpatterns = [
         name='avatar'
     ),
     path('verify-email/', VerifyEmailView.as_view(), name='verify-email'),
+    path('send-verification-email/', SendVerificationEmailView.as_view(), name='send-verification-email'),
 ]
