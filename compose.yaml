@@ -1,6 +1,6 @@
 services:
  db:
-   image: postgres:17
+   image: postgres
    environment:
      POSTGRES_DB: ${DATABASE_NAME}
      POSTGRES_USER: ${DATABASE_USERNAME}
@@ -13,6 +13,7 @@ services:
      - .env
  
  django-web:
+   image: trackhub-api-django-web
    build: .
    container_name: django-docker
    ports:
@@ -36,6 +37,7 @@ services:
      - .env
     
  migrations:
+    image: trackhub-api-migrations
     platform: linux/amd64
     build: .
     command: "python manage.py migrate --noinput"
