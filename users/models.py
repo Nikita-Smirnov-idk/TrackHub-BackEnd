@@ -5,14 +5,14 @@ from django.contrib.auth.models import (AbstractBaseUser,
 from django.core.validators import EmailValidator
 from TrackHub import settings
 from users.validators import (
-    password_validator,
-    validate_image_size,
-    name_validator,
+    validate_image,
+    validate_password,
+    validate_name,
 )
 import boto3
 from django.core.exceptions import ImproperlyConfigured
 from TrackHub.trackhub_bucket import TrackHubMediaStorage
-from users.image_handler import generate_default_avatar
+from users.Services.image_handler import generate_default_avatar
 
 
 class CustomUserManager(BaseUserManager):
@@ -64,17 +64,17 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     email = models.EmailField(validators=[EmailValidator()], unique=True)
     password = models.CharField(max_length=128,
-                                validators=[password_validator])
+                                validators=[validate_password])
     avatar = models.ImageField(
         null=True,
         blank=True,
-        validators=[validate_image_size],
+        validators=[validate_image],
         storage=TrackHubMediaStorage(),
         upload_to="avatars/"
     )
 
-    first_name = models.CharField(max_length=150, blank=True, validators=[name_validator])
-    last_name = models.CharField(max_length=150, blank=True, validators=[name_validator])
+    first_name = models.CharField(max_length=150, blank=True, validators=[validate_name])
+    last_name = models.CharField(max_length=150, blank=True, validators=[validate_name])
 
     is_public = models.BooleanField(default=True)
     is_online = models.BooleanField(default=True)
@@ -103,6 +103,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
                 # Delete the old avatar from Yandex Storage
                 old_avatar_path = old_instance.avatar.name
                 self.delete_old_image_from_yandex_storage(old_avatar_path)
+            
+            if old_instance.email != self.email:
+                self.is_verified = False
 
         if self.first_name:
             self.first_name = self.first_name.capitalize()
@@ -142,7 +145,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def set_password(self, raw_password):
         # Validate the password
-        password_validator(raw_password)
+        validate_password(raw_password)
 
         # Call the base method to hash the password
         super().set_password(raw_password)

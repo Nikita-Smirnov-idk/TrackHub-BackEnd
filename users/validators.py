@@ -3,44 +3,53 @@ import re
 from PIL import Image
 
 
-
-def password_validator(password):
+def validate_password(password, min_length=8, require_uppercase=True, require_lowercase=True,
+                require_digit=True, require_special=False, disallow_spaces=True):
     errors = []
 
-    # Check length
-    if len(password) < 8:
-        errors.append("Password must be at least 8 characters long.")
+    # Проверка длины пароля
+    if len(password) < min_length:
+        errors.append(f"Пароль должен содержать не менее {min_length} символов.")
 
-    # Check for uppercase letter
-    if not re.search(r'[A-Z]', password):
-        errors.append("Password must contain at least one uppercase letter.")
+    # Проверка наличия заглавной буквы
+    if require_uppercase and not re.search(r'[A-Z]', password):
+        errors.append("Пароль должен содержать хотя бы одну заглавную букву.")
 
-    # Check for lowercase letter
-    if not re.search(r'[a-z]', password):
-        errors.append("Password must contain at least one lowercase letter.")
+    # Проверка наличия строчной буквы
+    if require_lowercase and not re.search(r'[a-z]', password):
+        errors.append("Пароль должен содержать хотя бы одну строчную букву.")
 
-    # Check for a digit
-    if not re.search(r'\d', password):
-        errors.append("Password must contain at least one digit.")
+    # Проверка наличия цифры
+    if require_digit and not re.search(r'\d', password):
+        errors.append("Пароль должен содержать хотя бы одну цифру.")
 
-    # Check for spaces (should not contain spaces)
-    if re.search(r'\s', password):
-        errors.append("Password must not contain spaces.")
+    # Проверка наличия специального символа
+    if require_special and not re.search(r'[\W_]', password):
+        errors.append("Пароль должен содержать хотя бы один специальный символ.")
+
+    # Проверка наличия пробела
+    if disallow_spaces and re.search(r'\s', password):
+        errors.append("Пароль не должен содержать пробелы.")
 
     if errors:
         raise ValidationError(errors)
+        
 
-def name_validator(value):
-    """Валидатор для проверки имени и фамилии"""
+def validate_name(value):
+    
     if not re.match(r'^[A-ZА-ЯЁ][a-zа-яё]+$', value):
         raise ValidationError("Имя и фамилия должны начинаться с заглавной буквы и содержать только буквы.")
+        
 
-def validate_image_size(image):
-    # Проверка, что изображение квадратное
+def validate_image(image, max_size=200 * 1024):
+    errors = []
+
     img = Image.open(image)
     if img.width != img.height:
-        raise ValidationError("Изображение должно быть квадратным.")
+            errors.append("Изображение должно быть квадратным.")
     
-    # Проверка размера файла (например, не больше 5 МБ)
-    if image.size > 200 * 1024:
-        raise ValidationError("Размер файла не должен превышать 200 КБ.")
+    if image.size > max_size:
+            errors.append(f"Размер файла не должен превышать {max_size//1024} КБ.")
+
+    if errors:
+        raise ValidationError(errors)

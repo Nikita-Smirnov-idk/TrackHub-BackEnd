@@ -5,49 +5,33 @@ from rest_framework_simplejwt.views import (
 )
 from django.urls import path
 from users.views import (
-                            CustomUserRegisterView,
-                            AccountDeletionView,
+                            AccountWithPkView,
+                            AccountView,
                             LogoutView,
                             ReviewView,
                             ReviewWithPkView,
                             LoginView,
-                            ProfileView,
-                            ChangeUserDataView,
                             AvatarView,
-                            VerifyEmailView,
-                            SendVerificationEmailView,
+                            EmailView,
                         )
 
 urlpatterns = [
-    # Эндпоинт для получения токена
+    # Токены
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    # Эндпоинт для обновления токена
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    # Эндпоинт для проверки токена
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    path("register/", CustomUserRegisterView.as_view(), name="register"),
-    path('delete-account/',
-         AccountDeletionView.as_view(),
-         name='account_deletion'),
+
+    # Аккаунты
+    path('account/', AccountView.as_view(), name='account'),
+    path('account/<int:account_id>/', AccountWithPkView.as_view(), name='account_detail'),
+    path('avatar/', AvatarView.as_view(), name='avatar'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('login/', LoginView.as_view(), name='login'),
-    path(
-        'change_user_data/',
-        ChangeUserDataView.as_view(),
-        name='change_user_data/'
-    ),
+
+    # Emails
+    path('email/', EmailView.as_view(), name='email'),
+
+    # Reviews
     path('reviews/', ReviewView.as_view(), name='review'),
-    path(
-        'reviews/<int:review_id>/',
-        ReviewWithPkView.as_view(),
-        name='review_detail'
-    ),
-    path('profile/<int:profile_id>/', ProfileView.as_view(), name='profile'),
-    path(
-        'avatar/',
-        AvatarView.as_view(),
-        name='avatar'
-    ),
-    path('verify-email/', VerifyEmailView.as_view(), name='verify-email'),
-    path('send-verification-email/', SendVerificationEmailView.as_view(), name='send-verification-email'),
+    path('reviews/<int:review_id>/', ReviewWithPkView.as_view(), name='review_detail'),
 ]

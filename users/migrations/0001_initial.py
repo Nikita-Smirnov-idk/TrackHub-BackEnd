@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
                 (
                     "password",
                     models.CharField(
-                        max_length=128, validators=[users.validators.password_validator]
+                        max_length=128, validators=[users.validators.validate_password]
                     ),
                 ),
                 (
@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
                         null=True,
                         storage=TrackHub.trackhub_bucket.TrackHubMediaStorage(),
                         upload_to="avatars/",
-                        validators=[users.validators.validate_image_size],
+                        validators=[users.validators.validate_image],
                     ),
                 ),
                 (
@@ -72,7 +72,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         blank=True,
                         max_length=150,
-                        validators=[users.validators.name_validator],
+                        validators=[users.validators.validate_name],
                     ),
                 ),
                 (
@@ -80,7 +80,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         blank=True,
                         max_length=150,
-                        validators=[users.validators.name_validator],
+                        validators=[users.validators.validate_name],
                     ),
                 ),
                 ("is_public", models.BooleanField(default=True)),

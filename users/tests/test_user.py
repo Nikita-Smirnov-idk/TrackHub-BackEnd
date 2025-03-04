@@ -96,7 +96,6 @@ class JWTAuthenticationTests(APITestCase):
         self.token_obtain_url = reverse("token_obtain_pair")
         self.token_refresh_url = reverse("token_refresh")
         self.logout_url = reverse("logout")
-        self.deletion_url = reverse("account_deletion")
 
     def test_obtain_tokens(self):
         """Проверка получения токенов (Access и Refresh)"""
@@ -182,16 +181,14 @@ class AccountDeletionViewTests(APITestCase):
         # Генерируем Refresh Token и Access Token
         self.refresh_token = str(RefreshToken.for_user(self.user))
         self.access_token = str(RefreshToken(self.refresh_token).access_token)
-        self.deletion_url = reverse("account_deletion")
-        self.logout_url = reverse("logout")
-        self.token_refresh_url = reverse("token_refresh")
+        self.avatar_url = reverse("account")
 
     def test_account_deletion_and_token_blacklist(self):
         """
         Тестирует удаление аккаунта и добавление токена в черный список.
         """
         # Отправляем запрос на удаление аккаунта
-        response = self.client.delete(self.deletion_url,
+        response = self.client.delete(self.avatar_url,
                                       data={"refresh": self.refresh_token})
 
         # Проверяем, что пользователь был успешно удален
@@ -213,7 +210,7 @@ class AccountDeletionViewTests(APITestCase):
         invalid_refresh = "invalid_token"
 
         # Отправляем запрос с некорректным токеном
-        response = self.client.delete(self.deletion_url,
+        response = self.client.delete(self.avatar_url,
                                       data={"refresh": invalid_refresh})
 
         # Проверяем, что вернулась ошибка
@@ -225,7 +222,7 @@ class AccountDeletionViewTests(APITestCase):
         Проверяет, что удаление аккаунта без передачи Refresh Token
         все равно успешно удаляет пользователя.
         """
-        response = self.client.delete(self.deletion_url)
+        response = self.client.delete(self.avatar_url)
 
         # Проверяем, что пользователь был удален
         self.assertEqual(response.status_code, 400)
@@ -256,7 +253,7 @@ class RegisterViewTests(APITestCase):
             'first_name': 'Testuser',
         }
 
-        self.register_url = reverse("register")
+        self.register_url = reverse("account")
 
     def test_account_register_with_valid_data(self):
         """
@@ -389,6 +386,38 @@ class LoginTests(APITestCase):
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("refresh", response.data)
+    
+class LogoutTests(APITestCase):
+    def setUp(self):
+        # Create a test user
+        self.user = get_user_model().objects.create_user(
+            email="testuser@example.com",
+            password="Testpassword123"
+        )
+        self.valid_credentials = {
+            "email": "testuser@example.com",
+            "password": "Testpassword123",
+        }
+        self.invalid_credentials = {
+            "email": "testuser@example.com",
+            "password": "wrongpassword",
+        }
+        self.logout_url = reverse("logout")
+
+    def test_logout_unauthorized(self):
+        """
+        Test that a user can log in with valid credentials.
+        """
+        response = self.client.post(self.logout_url, self.valid_credentials)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_logout_authorized(self):
+        """
+        Test that a user can log in with valid credentials.
+        """
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.logout_url, self.valid_credentials)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class ReviewCreationTestCase(APITestCase):
@@ -498,55 +527,13 @@ class ReviewCreationTestCase(APITestCase):
 class ProfileTestCase(APITestCase):
     def setUp(self):
         self.user_model = get_user_model()
-        self.profile_url = "profile"
+        self.profile_url = "account_detail"
         self.user = self.user_model.objects.create_user(
             email='testuser1@example.com',
             password='Securepassword123',
             first_name='Testuserone',
             last_name='Testuserone',
         )
-
-    def test_put_authenticated_user_with_valid_data(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.put(reverse(self.profile_url,
-                                           args=[self.user.pk]),
-                                   data={'first_name': 'Artaman',
-                                         },)
-        self.user.refresh_from_db()
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['first_name'],
-                         self.user_model.objects.
-                         get(email=self.user.email).first_name)
-
-    def test_put_unauthenticated_user_with_valid_data(self):
-        response = self.client.put(reverse(self.profile_url,
-                                           args=[self.user.pk]),
-                                   data={'first_name': 'Artaman',
-                                         },)
-        self.user.refresh_from_db()
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertNotEqual(self.user_model.objects.
-                         get(email=self.user.email).first_name, 'Artaman')
-
-    def test_put_authenticated_user_with_more_valid_data(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.put(reverse(self.profile_url,
-                                           args=[self.user.pk]),
-                                   data={'email': 'testuser2@example.com',
-                                         'first_name': 'Testuser',
-                                         'last_name': 'Artamanov',
-                                         },)
-        self.user.refresh_from_db()
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['last_name'],
-                         self.user_model.objects.
-                         get(email=response.data['email']).last_name)
-        self.assertEqual(response.data['first_name'],
-                         self.user_model.objects.
-                         get(email=response.data['email']).first_name)
-        self.assertEqual(response.data['email'],
-                         self.user_model.objects.
-                         get(email=response.data['email']).email)
 
     def test_get_authenticated_user_with_public(self):
         user3 = self.user_model.objects.create_user(

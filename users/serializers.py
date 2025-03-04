@@ -3,43 +3,44 @@ from users.models import (
     CustomUser,
     Review,
 )
-from users.validators import password_validator
+from users.validators import (
+    validate_password,
+    validate_name,
+)
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth import get_user_model
-from django.conf import settings
+from users.Services import converters
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(validators=[validate_password], write_only=True)
+    first_name = serializers.CharField(validators=[validate_name], required=False)
+    last_name = serializers.CharField(validators=[validate_name], required=False)
 
     class Meta:
         model = CustomUser
         fields = [
-            'id',
             'first_name',
             'last_name',
             'email',
             'password',
         ]
-        read_only_fields = ['id']
 
-    def validate(self, data):
-        request_method = self.context.get('request').method
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
 
-        if request_method == 'POST':
-            required_fields = ['email', 'password']
-            for field in required_fields:
-                if field not in data:
-                    raise serializers.ValidationError(
-                        {field: f"{field} is required for creation."}
-                    )
-            password_validator(data['password'])
+        if request and request.method == 'POST':
+            self.fields['email'].required = True
+            self.fields['password'].required = True
 
-
-        return super().validate(data)
+        elif request and request.method == 'PUT':
+            for field in self.fields.values():
+                field.required = False
 
     def create(self, validated_data):
+        if CustomUser.objects.filter(email=validated_data["email"]).exists():
+            raise serializers.ValidationError({"email": "Такой пользователь уже существует"})
         validated_data['password'] = make_password(validated_data['password'])
         return super().create(validated_data)
 
@@ -49,15 +50,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
                 validated_data['password']
             )
         return super().update(instance, validated_data)
-
-
-class CustomUserAvatarSerializer(serializers.ModelSerializer):
-    avatar = serializers.ImageField(use_url=True)
-
-    class Meta:
-        model = CustomUser
-        fields = ['id', 'avatar']
-        read_only_fields = ['id']
 
 
 class CustomUserGetSerializer(serializers.ModelSerializer):
@@ -76,26 +68,7 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
     
     def get_avatar(self, obj):
-        if obj.avatar:
-            return f"https://{settings.AWS_S3_CUSTOM_DOMAIN}{obj.avatar}"
-        return None  
-
-
-# class RatingOfUserSerializer(serializers.ModelSerializer):
-#     user = serializers.PrimaryKeyRelatedField(
-#         queryset=CustomUser.objects.all()
-#     )
-
-#     class Meta:
-#         model = RatingOfUser
-#         fields = ['user', 'rating', 'is_rating_active']
-
-#     def validate(self, data):
-#         if 'user' in data and RatingOfUser.objects.filter(
-#             trainer=data['user']
-#         ).exists():
-#             raise serializers.ValidationError("RatingOfUser already exists.")
-#         return super().validate(data)
+        return converters.avatar_to_representation(obj.avatar.url)
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -131,3 +104,10 @@ class ReviewSerializer(serializers.ModelSerializer):
             except Review.DoesNotExist:
                 pass
         return super().validate(data)
+    
+    def update(self, instance, validated_data):
+        # Удаляем поля, которые нельзя изменять при обновлении
+        non_updatable_fields = ['user_id', 'for_user_id']
+        for field in non_updatable_fields:
+            validated_data.pop(field, None)
+        return super().update(instance, validated_data)
