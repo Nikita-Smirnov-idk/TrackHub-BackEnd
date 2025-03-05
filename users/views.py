@@ -227,7 +227,7 @@ class AccountView(APIView):
 
         email = request.data.get('email')
 
-        user = CustomUser.objects.filter(email=email)
+        user = CustomUser.objects.get(email=email)
 
         token_payload = {
             'user_id': user.id,

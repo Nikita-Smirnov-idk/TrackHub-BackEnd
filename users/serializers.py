@@ -22,7 +22,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         fields = [
             'first_name',
             'last_name',
-            CustomUser.email,
+            'email',
             'password',
         ]
 
