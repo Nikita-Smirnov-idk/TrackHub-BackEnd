@@ -53,7 +53,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 
 class CustomUserGetSerializer(serializers.ModelSerializer):
-    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -62,7 +61,7 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
             CustomUser._meta.get_field('first_name').get_attname(),
             CustomUser._meta.get_field('last_name').get_attname(),
             CustomUser._meta.get_field('email').get_attname(),
-            CustomUser._meta.get_field('user_rating').get_attname(),
+            'user_rating',
             'avatar',
         ]
         read_only_fields = [CustomUser._meta.get_field('id').get_attname()]
