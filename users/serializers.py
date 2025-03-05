@@ -21,8 +21,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'first_name',
-            'last_name',
-            'email',
+            'last',
+            CustomUser.email,
             'password',
         ]
 
@@ -33,6 +33,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
         if request and request.method == 'POST':
             self.fields['email'].required = True
             self.fields['password'].required = True
+            self.fields['first_name'].required = True
+            self.fields['last_name'].required = True
 
         elif request and request.method == 'PUT':
             for field in self.fields.values():
@@ -58,14 +60,14 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id',
-            'first_name',
-            'last_name',
-            'email',
-            'user_rating',
+            CustomUser.id,
+            CustomUser.first_name,
+            CustomUser.last_name,
+            CustomUser.avatar,
+            CustomUser.user_rating,
             'avatar',
         ]
-        read_only_fields = ['id']
+        read_only_fields = [CustomUser.id]
     
     def get_avatar(self, obj):
         return converters.avatar_to_representation(obj.avatar.url)
@@ -84,21 +86,21 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [
-            "id",
+            CustomUser.id,
             "user_id",
             "for_user_id",
-            "rating",
-            "review_text",
-            "date"
+            CustomUser.rating,
+            CustomUser.review_text,
+            CustomUser.date,
         ]
-        read_only_fields = ["id", "date"]
+        read_only_fields = [CustomUser.id, CustomUser.date]
 
     def validate(self, data):
         if self.instance is None:
             try:
                 _ = Review.objects.get(
-                    user=data['user'],
-                    for_user=data['for_user']
+                    user=data['user_id'],
+                    for_user=data['for_user_id']
                 )
                 raise ValidationError("Review already exists.")
             except Review.DoesNotExist:

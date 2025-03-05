@@ -221,12 +221,34 @@ class AccountView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        serializer = CustomUserSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({"error": "Email и пароль обязательны"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if CustomUser.objects.filter(email=email).exists():
+            return Response({"error": "Пользователь уже существует"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = CustomUser.objects.create_user(email=email, password=password, is_active=False)
+
+        token_payload = {
+            'user_id': user.id,
+            'exp': datetime.utcnow() + timedelta(hours=24),
+        }
+        token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm='HS256')
+
+        confirm_url = f"TrackHub://verify-email?token={token}"
+
+        send_mail(
+            subject="Подтверждение регистрации",
+            message=f"Подтвердите ваш email:\n\n{confirm_url}\n\nСсылка действительна 24 часа.",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+        return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_201_CREATED)
         
     def put(self, request):
         serializer = CustomUserSerializer(request.user, data=request.data, partial=True)
@@ -293,19 +315,12 @@ class AccountWithPkView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
-class EmailView(APIView):
+class EmailSendView(APIView):
     authentication_classes = [JWTAuthentication]
-    http_method_names = ['get', 'post']
+    http_method_names = ['post']
+    permission_classes=[IsAuthenticated]
 
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [IsAuthenticated()]
-        if self.request.method == 'POST':
-            return [AllowAny()]
-        return super().get_permissions()
-
-
-    def get(self, request):
+    def post(self, request):
         user = CustomUser.objects.get(email=request.user.email)
 
         # Создание токена для email
@@ -327,8 +342,14 @@ class EmailView(APIView):
             fail_silently=False,
         )
 
-        return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_201_CREATED)
+        return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_200_OK)
     
+
+class EmailVerificateView(APIView):
+    authentication_classes = [JWTAuthentication]
+    http_method_names = ['post']
+    permission_classes = [AllowAny]
+
 
     def post(self, request):
         token = request.data.get('token')

@@ -12,7 +12,8 @@ from users.views import (
                             ReviewWithPkView,
                             LoginView,
                             AvatarView,
-                            EmailView,
+                            EmailSendView,
+                            EmailVerificateView,
                         )
 
 urlpatterns = [
@@ -24,12 +25,13 @@ urlpatterns = [
     # Аккаунты
     path('account/', AccountView.as_view(), name='account'),
     path('account/<int:account_id>/', AccountWithPkView.as_view(), name='account_detail'),
-    path('avatar/', AvatarView.as_view(), name='avatar'),
-    path('logout/', LogoutView.as_view(), name='logout'),
-    path('login/', LoginView.as_view(), name='login'),
+    path('account/logout/', LogoutView.as_view(), name='logout'),
+    path('account/login/', LoginView.as_view(), name='login'),
+    path('account/avatar/', AvatarView.as_view(), name='avatar'),
 
     # Emails
-    path('email/', EmailView.as_view(), name='email'),
+    path('email/send', EmailSendView.as_view(), name='email_send'),
+    path('email/verificate', EmailVerificateView.as_view(), name='email_verificate'),
 
     # Reviews
     path('reviews/', ReviewView.as_view(), name='review'),
