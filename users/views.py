@@ -221,16 +221,13 @@ class AccountView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        serializer = CustomUserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+
         email = request.data.get('email')
-        password = request.data.get('password')
 
-        if not email or not password:
-            return Response({"error": "Email и пароль обязательны"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if CustomUser.objects.filter(email=email).exists():
-            return Response({"error": "Пользователь уже существует"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = CustomUser.objects.create_user(email=email, password=password, is_active=False)
+        user = CustomUser.objects.filter(email=email)
 
         token_payload = {
             'user_id': user.id,
