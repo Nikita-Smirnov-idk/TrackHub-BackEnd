@@ -64,7 +64,7 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
             CustomUser.first_name,
             CustomUser.last_name,
             CustomUser.avatar,
-            CustomUser.user_rating,
+            'user_rating',
             'avatar',
         ]
         read_only_fields = [CustomUser.id]
@@ -86,14 +86,14 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [
-            CustomUser.id,
+            Review.id,
             "user_id",
             "for_user_id",
-            CustomUser.rating,
-            CustomUser.review_text,
-            CustomUser.date,
+            Review.rating,
+            Review.review_text,
+            Review.date,
         ]
-        read_only_fields = [CustomUser.id, CustomUser.date]
+        read_only_fields = [Review.id, Review.date]
 
     def validate(self, data):
         if self.instance is None:
