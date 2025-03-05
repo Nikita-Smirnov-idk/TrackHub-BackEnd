@@ -21,7 +21,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'first_name',
-            'last',
+            'last_name',
             CustomUser.email,
             'password',
         ]
