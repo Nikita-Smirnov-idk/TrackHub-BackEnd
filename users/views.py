@@ -65,9 +65,9 @@ class LoginView(APIView):
             return Response(
                 {
                     'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                    'user_id': user.id
-                }
+                    'access': str(refresh.access_token)
+                },
+                status=status.HTTP_200_OK
             )
         else:
             try:
@@ -224,6 +224,8 @@ class AccountView(APIView):
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         email = request.data.get('email')
 
@@ -245,7 +247,7 @@ class AccountView(APIView):
             fail_silently=False,
         )
 
-        return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_201_CREATED)
+        return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_200_OK)
         
     def put(self, request):
         serializer = CustomUserSerializer(request.user, data=request.data, partial=True)

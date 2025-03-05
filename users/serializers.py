@@ -22,7 +22,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         fields = [
             'first_name',
             'last_name',
-            'email',
+            CustomUser._meta.get_field('email').get_attname(),
             'password',
         ]
 
@@ -31,7 +31,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
 
         if request and request.method == 'POST':
-            self.fields['email'].required = True
+            self.fields[CustomUser._meta.get_field('email').get_attname()].required = True
             self.fields['password'].required = True
             self.fields['first_name'].required = True
             self.fields['last_name'].required = True
@@ -41,8 +41,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
                 field.required = False
 
     def create(self, validated_data):
-        if CustomUser.objects.filter(email=validated_data["email"]).exists():
-            raise serializers.ValidationError({"email": "Такой пользователь уже существует"})
         validated_data['password'] = make_password(validated_data['password'])
         return super().create(validated_data)
 
@@ -60,14 +58,14 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            CustomUser.id,
-            CustomUser.first_name,
-            CustomUser.last_name,
-            CustomUser.avatar,
+            CustomUser._meta.get_field('id').get_attname(),
+            CustomUser._meta.get_field('first_name').get_attname(),
+            CustomUser._meta.get_field('last_name').get_attname(),
+            CustomUser._meta.get_field('avatar').get_attname(),
             'user_rating',
             'avatar',
         ]
-        read_only_fields = [CustomUser.id]
+        read_only_fields = [CustomUser._meta.get_field('id').get_attname()]
     
     def get_avatar(self, obj):
         return converters.avatar_to_representation(obj.avatar.url)
@@ -86,14 +84,14 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [
-            Review.id,
+            Review._meta.get_field('id').get_attname(),
             "user_id",
             "for_user_id",
-            Review.rating,
-            Review.review_text,
-            Review.date,
+            Review._meta.get_field('rating').get_attname(),
+            Review._meta.get_field('review_text').get_attname(),
+            Review._meta.get_field('date').get_attname(),
         ]
-        read_only_fields = [Review.id, Review.date]
+        read_only_fields = [Review._meta.get_field('id').get_attname(), Review._meta.get_field('date').get_attname()]
 
     def validate(self, data):
         if self.instance is None:
