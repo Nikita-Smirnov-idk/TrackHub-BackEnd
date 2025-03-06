@@ -43,10 +43,7 @@ def generate_default_avatar(id):
     
     # Рисуем первую букву имени
     draw = ImageDraw.Draw(image)
-    try:
-        font = ImageFont.truetype("arial.ttf", 100)  # Используем шрифт Arial
-    except IOError:
-        font = ImageFont.load_default()  # Используем шрифт по умолчанию, если Arial недоступен
+    font = ImageFont.load_default(150)  # Используем шрифт по умолчанию, если Arial недоступен
     
     text = name[0].upper() if name else "U"
     text_color = (255, 255, 255)  # Белый цвет текста
@@ -57,7 +54,7 @@ def generate_default_avatar(id):
     text_height = bbox[3] - bbox[1]
     
     # Позиционируем текст по центру
-    text_position = ((size[0] - text_width) // 2, (size[1] - text_height) // 2)
+    text_position = ((size[0] - text_width) / 2.15, (size[1] - text_height) / 7)
     draw.text(text_position, text, font=font, fill=text_color)
     
     # Сохраняем изображение в BytesIO
