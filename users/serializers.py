@@ -34,7 +34,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
             self.fields[CustomUser._meta.get_field('email').get_attname()].required = True
             self.fields['password'].required = True
             self.fields['first_name'].required = True
-            self.fields['last_name'].required = True
 
         elif request and request.method == 'PUT':
             for field in self.fields.values():

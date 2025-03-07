@@ -73,7 +73,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         upload_to="avatars/"
     )
 
-    first_name = models.CharField(max_length=150, blank=True, validators=[validate_name])
+    first_name = models.CharField(max_length=150, validators=[validate_name])
     last_name = models.CharField(max_length=150, blank=True, validators=[validate_name])
 
     is_public = models.BooleanField(default=True)
@@ -106,11 +106,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             
             if old_instance.email != self.email:
                 self.is_verified = False
+            
+            if old_instance.first_name != self.first_name:
+                 generate_default_avatar(self.id)
 
         if self.first_name:
-            self.first_name = self.first_name.capitalize()
+            self.first_name = self.first_name.lower().capitalize()
         if self.last_name:
-            self.last_name = self.last_name.capitalize()
+            self.last_name = self.last_name.lower().capitalize()
 
         # Сохраняем объект User
         super().save(*args, **kwargs)

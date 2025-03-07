@@ -37,8 +37,8 @@ def validate_password(password, min_length=8, require_uppercase=True, require_lo
 
 def validate_name(value):
     
-    if not re.match(r'^[A-ZА-ЯЁ][a-zа-яё]+$', value):
-        raise ValidationError("Имя и фамилия должны начинаться с заглавной буквы и содержать только буквы.")
+    if not re.match(r'^[A-Za-zА-ЯЁа-яё]+$', value):
+        raise ValidationError("Имя и фамилия должны содержать только буквы.")
         
 
 def validate_image(image, max_size=200 * 1024):

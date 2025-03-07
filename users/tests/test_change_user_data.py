@@ -12,7 +12,6 @@ class UserChangeDataTests(APITestCase):
             email='testuser1@example.com',
             password='Securepassword123',
             first_name='Testuserone',
-            last_name='Testuserone',
         )
         self.url = reverse("account")
 

@@ -14,6 +14,7 @@ def create_superuser(sender, **kwargs):
             User.objects.create_superuser(
                 email=email,
                 password=password,
+                first_name="admin",
             )
             print("Superuser created.")
         else:

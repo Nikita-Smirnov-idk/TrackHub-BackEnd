@@ -1,9 +1,10 @@
 from django.core.files.base import ContentFile
 from PIL import Image, ImageDraw, ImageFont
-import random
 import io
 from django.contrib.auth import get_user_model
-from django.core.files import File
+import os
+from django.conf import settings
+
 
 AVATAR_COLORS = [
     "#FF6F61",  # Коралловый
@@ -41,9 +42,14 @@ def generate_default_avatar(id):
     # Создаем квадратное изображение
     image = Image.new("RGB", size, background_rgb)
     
-    # Рисуем первую букву имени
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(current_dir, '../static/fonts/pt-sans.narrow-bold.ttf')
+
     draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default(150)  # Используем шрифт по умолчанию, если Arial недоступен
+    try:
+        font = ImageFont.truetype(font_path, 150)
+    except:
+        font = ImageFont.load_default()
     
     text = name[0].upper() if name else "U"
     text_color = (255, 255, 255)  # Белый цвет текста
