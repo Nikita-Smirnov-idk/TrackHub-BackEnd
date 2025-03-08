@@ -1,5 +1,19 @@
 from django.db import models
 from users.models import CustomUser
+from django.core.validators import MaxValueValidator, MinValueValidator
+
+
+class UserFitnessProgram(models.Model):
+    workout_limitation=models.PositiveIntegerField(default=100)
+    exercise_limitation=models.PositiveIntegerField(default=200)
+    plans_limitation=models.PositiveIntegerField(default=50)
+
+
+class GymEquippment(models.Model):
+    Exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name='gym_equipment')
+
+    name = models.CharField(max_length=255)
+    
 
 
 class Exercise(models.Model):
@@ -9,6 +23,12 @@ class Exercise(models.Model):
     category = models.ForeignKey('ExerciseCategory',
                                  on_delete=models.CASCADE,
                                  related_name='exercises')
+    gym_equipment = models.ForeignKey(
+        GymEquippment,
+        on_delete=models.models.CASCADE,
+        null=True, 
+        elated_name='exercises'
+    )
 
     # Упражнение доступно для всех
     is_public = models.BooleanField(default=False)
@@ -16,6 +36,17 @@ class Exercise(models.Model):
     shared_with = models.ManyToManyField(CustomUser,
                                          related_name='shared_exercises',
                                          blank=True)  # С кем поделились
+    
+    reps_measured = models.BooleanField(default=True)
+
+    value = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MaxValueValidator(3600),
+            MinValueValidator(1)
+        ]
+    )
+
     created_by = models.ForeignKey(
         CustomUser,
         on_delete=models.SET_NULL,  # Если пользователь удален, оставляем NULL
@@ -87,10 +118,31 @@ class WorkoutExercise(models.Model):
                                 related_name="workout_exercises",
                                 )
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
-    sets = models.PositiveIntegerField()  # Количество подходов
-    reps = models.PositiveIntegerField()  # Количество повторений
+    sets = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MaxValueValidator(100),
+            MinValueValidator(1)
+        ]
+    )  # Количество подходов
+    reps = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MaxValueValidator(100),
+            MinValueValidator(1)
+        ]
+    ) # Количество повторений
     # Время отдыха между подходами (в секундах)
-    rest_time = models.PositiveIntegerField()
+    rest_time = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MaxValueValidator(3600),
+            MinValueValidator(1)
+        ]
+    )
+
+    equipment_value = 
+
     available_for = models.ManyToManyField(
         CustomUser,
         related_name='available_workout_exercises',
