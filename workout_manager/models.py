@@ -382,6 +382,7 @@ class WeeklyFitnessPlan(models.Model):
             created_at_service.update_changed_at(self, old_instance)
 
         super().save(*args, **kwargs)
+        print("Asdasd")
 
 
 

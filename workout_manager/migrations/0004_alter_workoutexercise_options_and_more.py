@@ -16,6 +16,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AddField(
+            model_name="workoutexercise",
+            name="order",
+            field=models.PositiveIntegerField(default=1),
+        ),
         migrations.AlterModelOptions(
             name="workoutexercise",
             options={"ordering": ["order"]},
@@ -39,6 +44,16 @@ class Migration(migrations.Migration):
             model_name="workoutexercise",
             old_name="rest_time",
             new_name="rest_time_after_set",
+        ),
+        migrations.AddField(
+            model_name="exercise",
+            name="original",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="workout_manager.exercise",
+            ),
         ),
         migrations.AlterUniqueTogether(
             name="exercise",
@@ -69,16 +84,6 @@ class Migration(migrations.Migration):
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name="exercise",
-            name="original",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                to="workout_manager.exercise",
-            ),
-        ),
-        migrations.AddField(
             model_name="workout",
             name="description",
             field=models.CharField(blank=True, max_length=500, null=True),
@@ -102,11 +107,6 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.SET_NULL,
                 to="workout_manager.workout",
             ),
-        ),
-        migrations.AddField(
-            model_name="workoutexercise",
-            name="order",
-            field=models.PositiveIntegerField(default=1),
         ),
         migrations.AlterField(
             model_name="exercise",

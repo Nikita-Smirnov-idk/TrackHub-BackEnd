@@ -111,5 +111,4 @@ class AvatarTests(APITestCase):
         url = reverse("avatar")
 
         response = self.client.post(url, {"avatar": avatar}, format="multipart")
-        print(response.data)
         self.assertEqual(response.status_code, 400)

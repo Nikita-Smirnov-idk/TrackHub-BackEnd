@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 
-def delete_instance_from_s3(self, file_path):
+def delete_instance_from_s3(file_path):
         """Deletes the old avatar from Yandex Object Storage"""
 
         if not file_path:
