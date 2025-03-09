@@ -6,6 +6,7 @@ from users.serializers import (
                                 CustomUserGetSerializer,
                                 CustomUserSerializer,
                                 ReviewSerializer,
+                                AvatarSerializer,
                             )
 from users.models import Review, CustomUser
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -17,7 +18,6 @@ from django.shortcuts import get_object_or_404
 from PIL import Image
 from django.core.files.base import ContentFile
 from io import BytesIO
-from users.Services import converters
 from django.conf import settings
 from django.core.mail import send_mail
 import jwt
@@ -168,25 +168,14 @@ class AvatarView(APIView):
     
     def create_or_update(self, request):
         user = request.user
-        avatar = request.FILES.get('avatar')
-        
-        try:
-            # Открываем изображение
-            image = Image.open(avatar)
-            # Удаляем старую аватарку, если она есть
-            if user.avatar:
-                user.avatar.delete(save=False)
-            
-            buffer = BytesIO()
-            image.save(buffer, format="JPEG")
 
-            # Сохраняем сжатое изображение
-            user.avatar.save(avatar.name, ContentFile(buffer.getvalue()), save=False)
-            user.save()
-            
-            return Response({"avatar_url": converters.avatar_to_representation(user.avatar.url)}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        serializer = AvatarSerializer(user, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        print(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
     
     def put(self, request, *args, **kwargs):
         return self.create_or_update(request)

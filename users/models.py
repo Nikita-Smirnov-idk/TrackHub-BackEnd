@@ -13,6 +13,7 @@ import boto3
 from django.core.exceptions import ImproperlyConfigured
 from TrackHub.trackhub_bucket import TrackHubMediaStorage
 from users.Services.image_handler import generate_default_avatar
+from users.Services.delete_instances_from_s3 import delete_instance_from_s3
 
 
 class CustomUserManager(BaseUserManager):
@@ -62,7 +63,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model.
     """
-    email = models.EmailField(validators=[EmailValidator()], unique=True)
+    email = models.EmailField(validators=[EmailValidator()], unique=True, db_index=True)
     password = models.CharField(max_length=128,
                                 validators=[validate_password])
     avatar = models.ImageField(
@@ -102,13 +103,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             if old_instance.avatar and old_instance.avatar != self.avatar:
                 # Delete the old avatar from Yandex Storage
                 old_avatar_path = old_instance.avatar.name
-                self.delete_old_image_from_yandex_storage(old_avatar_path)
+                delete_instance_from_s3(old_avatar_path)
             
             if old_instance.email != self.email:
                 self.is_verified = False
             
             if old_instance.first_name != self.first_name:
-                 generate_default_avatar(self.id)
+                generate_default_avatar(self.id)
 
         if self.first_name:
             self.first_name = self.first_name.lower().capitalize()
@@ -124,27 +125,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
         if not self.avatar:
             generate_default_avatar(self.id)
-            
 
-    def delete_old_image_from_yandex_storage(self, file_path):
-        """Deletes the old avatar from Yandex Object Storage"""
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            endpoint_url=settings.AWS_S3_ENDPOINT_URL
-        )
-        try:
-            s3_client.delete_object(
-                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-                # The file path (including folder) in your bucket
-                Key=file_path
-            )
-        except Exception as e:
-            raise ImproperlyConfigured(
-                "Error deleting old avatar from Yandex Object Storage:" +
-                f" {str(e)}"
-            )
+        
+    def delete(self, *args, **kwargs):
+        delete_instance_from_s3(self.avatar)
+        return super().delete(*args, **kwargs)
+    
 
     def set_password(self, raw_password):
         # Validate the password
@@ -178,7 +164,7 @@ class Review(models.Model):
     user = models.ForeignKey(CustomUser,
                              on_delete=models.CASCADE,
                              related_name='reviews')
-    review_text = models.TextField(blank=True)
+    review_text = models.CharField(max_length=1024, null=True, blank=True)
     # Рейтинг от 0 до 5
     rating = models.PositiveIntegerField(choices=[(i, i) for i in range(6)])
     date = models.DateTimeField(auto_now_add=True)

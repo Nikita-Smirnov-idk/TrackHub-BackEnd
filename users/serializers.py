@@ -6,23 +6,21 @@ from users.models import (
 from users.validators import (
     validate_password,
     validate_name,
+    validate_image,
 )
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
-from users.Services import converters
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(validators=[validate_password], write_only=True)
-    first_name = serializers.CharField(validators=[validate_name], required=False)
-    last_name = serializers.CharField(validators=[validate_name], required=False)
 
     class Meta:
         model = CustomUser
         fields = [
-            'first_name',
-            'last_name',
-            CustomUser._meta.get_field('email').get_attname(),
+            CustomUser._meta.get_field('first_name').name,
+            CustomUser._meta.get_field('last_name').name,
+            CustomUser._meta.get_field('email').name,
             'password',
         ]
 
@@ -31,7 +29,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
 
         if request and request.method == 'POST':
-            self.fields[CustomUser._meta.get_field('email').get_attname()].required = True
+            self.fields[CustomUser._meta.get_field('email').name].required = True
             self.fields['password'].required = True
             self.fields['first_name'].required = True
 
@@ -56,17 +54,26 @@ class CustomUserGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            CustomUser._meta.get_field('id').get_attname(),
-            CustomUser._meta.get_field('first_name').get_attname(),
-            CustomUser._meta.get_field('last_name').get_attname(),
-            CustomUser._meta.get_field('email').get_attname(),
-            'user_rating',
-            'avatar',
+            CustomUser._meta.get_field('id').name,
+            CustomUser._meta.get_field('first_name').name,
+            CustomUser._meta.get_field('last_name').name,
+            CustomUser._meta.get_field('email').name,
+            CustomUser._meta.get_field('avatar').name,
+            CustomUser._meta.get_field('user_rating').name,
         ]
-        read_only_fields = [CustomUser._meta.get_field('id').get_attname()]
-    
-    def get_avatar(self, obj):
-        return converters.avatar_to_representation(obj.avatar.url)
+        read_only_fields = [CustomUser._meta.get_field('id').name]
+
+class CustomUserPreviewSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            CustomUser._meta.get_field('id').name,
+            CustomUser._meta.get_field('first_name').name,
+            CustomUser._meta.get_field('last_name').name,
+            CustomUser._meta.get_field('avatar').name,
+        ]
+        read_only_fields = [CustomUser._meta.get_field('id').name]
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -82,14 +89,14 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [
-            Review._meta.get_field('id').get_attname(),
+            Review._meta.get_field('id').name,
             "user_id",
             "for_user_id",
-            Review._meta.get_field('rating').get_attname(),
-            Review._meta.get_field('review_text').get_attname(),
-            Review._meta.get_field('date').get_attname(),
+            Review._meta.get_field('rating').name,
+            Review._meta.get_field('review_text').name,
+            Review._meta.get_field('date').name,
         ]
-        read_only_fields = [Review._meta.get_field('id').get_attname(), Review._meta.get_field('date').get_attname()]
+        read_only_fields = [Review._meta.get_field('id').name, Review._meta.get_field('date').name]
 
     def validate(self, data):
         if self.instance is None:
@@ -109,3 +116,9 @@ class ReviewSerializer(serializers.ModelSerializer):
         for field in non_updatable_fields:
             validated_data.pop(field, None)
         return super().update(instance, validated_data)
+
+class AvatarSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomUser
+        fields = ['avatar']

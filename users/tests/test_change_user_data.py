@@ -51,5 +51,4 @@ class UserChangeDataTests(APITestCase):
                          self.user_model.objects.
                          get(email=response.data['email']).first_name)
         self.assertEqual(response.data['email'],
-                         self.user_model.objects.
-                         get(email=response.data['email']).email)
+                         self.user_model.objects.get(email=response.data['email']).email)
