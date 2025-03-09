@@ -13,7 +13,7 @@ from users.serializers import CustomUserPreviewSerializer
 from rest_framework.exceptions import ValidationError
 
 
-class EquipmentSerializer(serializers.ModelSerializer):
+class GymEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = GymEquipment
         fields = [
@@ -117,6 +117,14 @@ class ExerciseSerializer(serializers.ModelSerializer):
             })
 
         return data
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().update(instance, validated_data)
 
 
 class WorkoutExerciseSerializer(serializers.ModelSerializer):

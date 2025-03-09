@@ -13,7 +13,7 @@ class AvatarTests(APITestCase):
         self.user = User.objects.create_user(
             email='testuser@example.com',
             password='Securepassword123',
-            first_name='testuser',
+            first_name='testuser',  
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)  # Авторизуем пользователя

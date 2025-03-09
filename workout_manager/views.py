@@ -1,21 +1,64 @@
-# from rest_framework import status
-# from rest_framework.permissions import IsAuthenticated, AllowAny
-# from rest_framework_simplejwt.authentication import JWTAuthentication
-# from rest_framework.views import APIView
-# from django.http import QueryDict
-# from rest_framework.response import Response
-# from django.shortcuts import get_object_or_404
-# from workout_manager.models import (
-#     Exercise,
-#     Workout,
-#     WorkoutExercise,
-# )
-# from workout_manager.serializers import (
-#     ExerciseSerializer,
-#     WorkoutSerializer,
-#     WorkoutExerciseSerializer,
-# )
-# from users.models import CustomUser
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.views import APIView
+from django.http import QueryDict
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from workout_manager.models import (
+    Exercise,
+    Workout,
+    WorkoutExercise,
+    ExerciseCategory,
+    GymEquipment,
+    WeeklyFitnessPlan,
+    WeeklyFitnessPlanWorkout,
+)
+from workout_manager.serializers import (
+    ExerciseSerializer,
+    WorkoutSerializer,
+    WorkoutExerciseSerializer,
+    ExerciseCategorySerializer,
+    GymEquipmentSerializer,
+    WeeklyFitnessPlanSerializer,
+    WeeklyFitnessPlanWorkoutSerializer,
+)
+from users.models import CustomUser
+
+
+class ExerciseView(APIView):
+    http_method_names = ['get', 'post', 'put', 'delete']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        if self.request.method in ['POST', 'PUT', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        exercises = Exercise.objects.filter(is_public=True)
+        exercises += Exercise.objects.filter(created_by=request.user)
+
+        serialized_exercises = []
+
+        for exercise in exercises:
+            serialized_exercises.append(ExerciseSerializer(exercise).data)
+
+        return Response(serialized_exercises, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        serializer = ExerciseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request, exercise_id):
+
+
 
 
 # class ExerciseView(APIView):

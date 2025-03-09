@@ -9,7 +9,7 @@ class TrackHubMediaStorage(S3Boto3Storage):
 
     def url(self, name):
         """Generate a URL representation for stored files."""
-        domain = os.getenv("AWS_S3_GET_DOMAIN")
+        domain = os.getenv("AWS_S3_CUSTOM_DOMAIN")
         name = name.replace("/", "%2F")
 
         return f"https://{domain}/{self.location}%2F{name}"
