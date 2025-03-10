@@ -28,6 +28,41 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from workout_manager.Services import originality_service
 
 
+class ExercisePersonalView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        exercises = Exercise.objects.filter(created_by=request.user, is_archived=False, original=None)
+
+        serialized_exercises = ExerciseSerializer(exercises, many=True).data
+
+        return Response(serialized_exercises, status=status.HTTP_200_OK)
+
+
+class ExerciseSubcribedView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        exercises = Exercise.objects.filter(created_by=request.user, is_archived=False, original__isnull=False)
+
+        serialized_exercises = ExerciseSerializer(exercises, many=True).data
+
+        return Response(serialized_exercises, status=status.HTTP_200_OK)
+    
+
+
 class ExerciseView(APIView):
     http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
@@ -41,12 +76,8 @@ class ExerciseView(APIView):
     
     def get(self, request):
         exercises = Exercise.objects.filter(is_public=True)
-        exercises += Exercise.objects.filter(created_by=request.user, is_archived=False)
 
-        serialized_exercises = []
-
-        for exercise in exercises:
-            serialized_exercises.append(ExerciseSerializer(exercise).data)
+        serialized_exercises = ExerciseSerializer(exercises, many=True).data
 
         return Response(serialized_exercises, status=status.HTTP_200_OK)
     
@@ -153,6 +184,39 @@ class ArchivedExercisesDetailView(APIView):
             )
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
+class WorkoutPersonalView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        workouts = Workout.objects.filter(created_by=request.user, is_archived=False, original=None)
+
+        serialized_workouts = WorkoutSerializer(workouts, many=True).data
+
+        return Response(serialized_workouts, status=status.HTTP_200_OK)
+
+
+class WorkoutSubcribedView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        workouts = Workout.objects.filter(created_by=request.user, is_archived=False, original__isnull=False)
+
+        serialized_workouts = WorkoutSerializer(workouts, many=True).data
+
+        return Response(serialized_workouts, status=status.HTTP_200_OK)
+
 
 class WorkoutView(APIView):
     http_method_names = ['get', 'post']
@@ -167,12 +231,8 @@ class WorkoutView(APIView):
     
     def get(self, request):
         workouts = Workout.objects.filter(is_public=True)
-        workouts += Workout.objects.filter(created_by=request.user, is_archived=False)
 
-        serialized_workouts = []
-
-        for workout in workouts:
-            serialized_workouts.append(WorkoutSerializer(workout).data)
+        serialized_workouts = WorkoutSerializer(workouts, many=True).data
 
         return Response(serialized_workouts, status=status.HTTP_200_OK)
     
@@ -366,6 +426,40 @@ class WorkoutPublishView(APIView):
         return Response(serialized_plans, status=status.HTTP_200_OK)
 
 
+class WeeklyFitnessPlanPersonalView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        plans = WeeklyFitnessPlan.objects.filter(created_by=request.user, is_archived=False, original=None)
+
+        serialized_plans = WeeklyFitnessPlanSerializer(plans, many=True).data
+
+        return Response(serialized_plans, status=status.HTTP_200_OK)
+
+
+class WeeklyFitnessPlanSubcribedView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        plans = Workout.objects.filter(created_by=request.user, is_archived=False, original__isnull=False)
+
+        serialized_plans = WeeklyFitnessPlanSerializer(plans, many=True).data
+
+        return Response(serialized_plans, status=status.HTTP_200_OK)
+
+
 class WeeklyFitnessPlanView(APIView):
     http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
@@ -379,12 +473,8 @@ class WeeklyFitnessPlanView(APIView):
     
     def get(self, request):
         plans = WeeklyFitnessPlan.objects.filter(is_public=True)
-        plans += WeeklyFitnessPlan.objects.filter(created_by=request.user, is_archived=False)
 
-        serialized_plans = []
-
-        for plan in plans:
-            serialized_plans.append(WeeklyFitnessPlanSerializer(plan).data)
+        serialized_plans = WeeklyFitnessPlanSerializer(plans, many=True).data
 
         return Response(serialized_plans, status=status.HTTP_200_OK)
     

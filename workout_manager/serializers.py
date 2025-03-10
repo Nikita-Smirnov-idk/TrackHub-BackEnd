@@ -152,6 +152,7 @@ class WorkoutExerciseSerializer(serializers.ModelSerializer):
     )
     workout = serializers.PrimaryKeyRelatedField(
         queryset=Workout.objects.all(),
+        required=False,
     )
 
     class Meta:
@@ -198,10 +199,12 @@ class WorkoutSerializer(serializers.ModelSerializer):
 
     created_by = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
+        required=False
     )
 
     original = serializers.PrimaryKeyRelatedField(
         queryset=Workout.objects.all(),
+        required=False
     )
 
 
@@ -256,20 +259,13 @@ class WorkoutSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         workout_exercises_data = validated_data.pop('exercises', [])
+        print(workout_exercises_data)
 
         # Создаем Workout
         workout = Workout.objects.create(**validated_data)
 
         for we_data in workout_exercises_data:
-            exercise_id = we_data.get('exercise')
-
-            # Проверяем существование Exercise
-            exercise = Exercise.objects.filter(id=exercise_id).first()
-            if not exercise:
-                raise serializers.ValidationError({
-                    'workout_exercises':
-                    f'Exercise with id {exercise_id} does not exist.'
-                })
+            exercise = we_data.pop('exercise')
 
             # Создаем WorkoutExercise
             WorkoutExercise.objects.create(
@@ -291,15 +287,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
             instance.exercises.all().delete()
 
             for we_data in workout_exercises_data:
-                exercise_id = we_data.get('exercise')
-
-                # Проверяем существование Exercise
-                exercise = Exercise.objects.filter(id=exercise_id).first()
-                if not exercise:
-                    raise serializers.ValidationError({
-                        'workout_exercises':
-                        f'Exercise with id {exercise_id} does not exist.'
-                    })
+                exercise = we_data.get('exercise')
 
                 # Создаем WorkoutExercise
                 WorkoutExercise.objects.create(
@@ -417,7 +405,7 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
         plan = WeeklyFitnessPlan.objects.create(**validated_data)
 
         for pw_data in plan_workouts_data:
-            workout_id = pw_data.get('workout')
+            workout_id = pw_data.get('workout').id
 
             workout = Workout.objects.filter(id=workout_id).first()
             if not workout_id:
@@ -445,7 +433,7 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
             instance.workouts.all().delete()
 
             for pw_data in plan_workouts_data:
-                workout_id = pw_data.get('workout')
+                workout_id = pw_data.get('workout').id
 
                 # Проверяем существование Exercise
                 workout = Workout.objects.filter(id=workout_id).first()

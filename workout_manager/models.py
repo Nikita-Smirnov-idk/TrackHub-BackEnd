@@ -282,6 +282,7 @@ class WorkoutExercise(models.Model):
         """Automatically assign the next order if not set."""
         if not self.order:
             last_order = WorkoutExercise.objects.filter(workout=self.workout).count()
+            print(last_order + 1)
             self.order = last_order + 1  # Assign the next order
         super().save(*args, **kwargs)
 
