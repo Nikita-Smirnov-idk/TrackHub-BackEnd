@@ -334,6 +334,7 @@ class WorkoutPublishDetailView(APIView):
             if Workout.objects.filter(original=workout).exists():
                 return Response(
                     {"error": "Данная тренировка опубликована и имеет подписчиков. Ее нельзя удалить из публичных тренировок."},
+                    status=status.HTTP_400_BAD_REQUEST
             )
 
             workout.is_published = False
