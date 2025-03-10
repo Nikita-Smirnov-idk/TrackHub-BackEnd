@@ -1,8 +1,9 @@
 import os
-
 from django.contrib.auth import get_user_model
-from django.db.models.signals import post_migrate
+from django.db.models.signals import post_migrate, post_save
 from django.dispatch import receiver
+from django.conf import settings
+from workout_manager.models import UserWorkoutManagerLimitation
 
 @receiver(post_migrate)
 def create_superuser(sender, **kwargs):
@@ -19,3 +20,10 @@ def create_superuser(sender, **kwargs):
             print("Superuser created.")
         else:
             print("Superuser already exists.")
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_user_workout_manager_limitation(sender, instance, created, **kwargs):
+    if created:
+        UserWorkoutManagerLimitation.objects.create(user=instance)
+

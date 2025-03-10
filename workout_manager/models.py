@@ -12,7 +12,7 @@ from users.Services.delete_instances_from_s3 import delete_instance_from_s3
 from workout_manager.Services import created_at_service
 
 
-class UserWorkoutManagerLimitaion(models.Model):
+class UserWorkoutManagerLimitation(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='workout_manager_limitation')
 
     workout_limitation=models.PositiveIntegerField(default=50)
@@ -83,8 +83,9 @@ class Exercise(models.Model):
 
     created_by = models.ForeignKey(
         CustomUser,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="created_exercises",
+        null=True,
     )
 
     changed_at = models.DateTimeField(auto_now_add=True)
@@ -145,27 +146,6 @@ class Exercise(models.Model):
                 delete_instance_from_s3(self.video)
 
         return super().delete(*args, **kwargs)
-    
-
-    def validate(self, data):
-        """Get exercise limit from user settings and enforce it."""
-        request = self.context.get("request")
-        user = request.user if request else data.get("created_by")
-
-        if not user:
-            raise ValidationError("User is required.")
-
-        # Get user-specific limit from UserProfile
-        user_limit = user.workout_manager_limitation.exercise_limitation
-
-        # Check if user exceeded the limit
-        exercise_count = Exercise.objects.filter(created_by=user).count()
-        if exercise_count > user_limit:
-            raise ValidationError({
-                "non_field_errors": [f"You can create a maximum of {user_limit} exercises."]
-            })
-
-        return data
 
 
     def clone_for_user(self, user):
@@ -208,8 +188,9 @@ class Workout(models.Model):
 
     created_by = models.ForeignKey(
         CustomUser,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="created_workouts",
+        null=True,
     )
 
     changed_at = models.DateTimeField(auto_now_add=True)
@@ -268,25 +249,6 @@ class Workout(models.Model):
 
         return cloned_workout
     
-    def validate(self, data):
-        """Get exercise limit from user settings and enforce it."""
-        request = self.context.get("request")
-        user = request.user if request else data.get("created_by")
-
-        if not user:
-            raise ValidationError("User is required.")
-
-        # Get user-specific limit from UserProfile
-        user_limit = user.workout_manager_limitation.workout_limitation
-
-        # Check if user exceeded the limit
-        workout_count = Workout.objects.filter(created_by=user).count()
-        if workout_count > user_limit:
-            raise ValidationError({
-                "non_field_errors": [f"You can create a maximum of {user_limit} exercises."]
-            })
-
-        return data
 
     def __str__(self):
         return f"{self.name}"
@@ -348,10 +310,32 @@ class ExerciseCategory(models.Model):
         return self.name
 
 
+class WeeklyFitnessPlanWorkout(models.Model):
+    WEEK_DAYS = [
+        (1, "Monday"),
+        (2, "Tuesday"),
+        (3, "Wednesday"),
+        (4, "Thursday"),
+        (5, "Friday"),
+        (6, "Saturday"),
+        (7, "Sunday"),
+    ]
+
+    weekly_fitness_plan = models.ForeignKey('WeeklyFitnessPlan', on_delete=models.CASCADE, related_name="weekly_fitness_plan_workouts")
+    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, related_name="weekly_fitness_plan_workouts")
+    week_day = models.PositiveIntegerField(choices=WEEK_DAYS)
+
+    class Meta:
+        ordering = ["week_day"]
+    
+    def __str__(self):
+        return f"{self.weekly_fitness_plan.name}"
+
+
 class WeeklyFitnessPlan(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True, null=True)
-    workouts = models.ManyToManyField(Workout, through='WeeklyFitnessPlanWorkout')
+    workouts = models.ManyToManyField(Workout, through=WeeklyFitnessPlanWorkout)
 
     is_published = models.BooleanField(default=False)
     is_public = models.BooleanField(default=False)
@@ -367,8 +351,9 @@ class WeeklyFitnessPlan(models.Model):
 
     created_by = models.ForeignKey(
         CustomUser,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="created_weekly_fitness_plans",
+        null=True,
     )
 
     changed_at = models.DateTimeField(auto_now_add=True)
@@ -382,28 +367,36 @@ class WeeklyFitnessPlan(models.Model):
             created_at_service.update_changed_at(self, old_instance)
 
         super().save(*args, **kwargs)
-        print("Asdasd")
 
 
+    def clone_for_user(self, user):
+        """Создаёт копию тренировки для нового пользователя"""
 
-class WeeklyFitnessPlanWorkout(models.Model):
-    WEEK_DAYS = [
-        (1, "Monday"),
-        (2, "Tuesday"),
-        (3, "Wednesday"),
-        (4, "Thursday"),
-        (5, "Friday"),
-        (6, "Saturday"),
-        (7, "Sunday"),
-    ]
+        cloned_plan = WeeklyFitnessPlan.objects.create(
+            name = self.name,
+            description = self.description,
 
-    weekly_fitness_plan = models.ForeignKey(WeeklyFitnessPlan, on_delete=models.CASCADE, related_name="weekly_fitness_plan_workouts")
-    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, related_name="weekly_fitness_plan_workouts")
-    week_day = models.PositiveIntegerField(choices=WEEK_DAYS)
+            original = self,
+            created_by=user
+        )
 
-    class Meta:
-        ordering = ["week_day"]
-    
-    def __str__(self):
-        return f"{self.weekly_fitness_plan.name}"
+        original_plan_workouts = WeeklyFitnessPlanWorkout.objects.filter(weekly_fitness_plan=self).select_related('workout')
+
+        plan_workouts = []
+
+        for original_pw in original_plan_workouts:
+            cloned_workout = original_pw.workout.clone_for_user(user)
+
+            plan_workouts.append(
+                WeeklyFitnessPlanWorkout(
+                    weekly_fitness_plan=cloned_plan,
+                    wokrout=cloned_workout,
+                    week_day=original_pw.week_day,
+                )
+            )
+
+        # Bulk create all WorkoutExercise instances
+        WeeklyFitnessPlanWorkout.objects.bulk_create(plan_workouts)
+
+        return cloned_plan
 

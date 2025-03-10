@@ -129,6 +129,16 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         
     def delete(self, *args, **kwargs):
         delete_instance_from_s3(self.avatar)
+
+        self.created_exercises.filter(is_published=False).delete()
+        self.created_exercises.filter(is_published=True).update(author=None)
+
+        self.created_workouts.filter(is_published=False).delete()
+        self.created_workouts.filter(is_published=True).update(author=None)
+
+        self.created_weekly_fitness_plans.filter(is_published=False).delete()
+        self.created_weekly_fitness_plans.filter(is_published=True).update(author=None)
+
         return super().delete(*args, **kwargs)
     
 

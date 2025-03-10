@@ -79,6 +79,7 @@ class ExerciseSerializer(serializers.ModelSerializer):
             Exercise._meta.get_field('id').name,
             Exercise._meta.get_field('changed_at').name,
             Exercise._meta.get_field('is_public').name,
+            Exercise._meta.get_field('is_published').name,
             Exercise._meta.get_field('is_archived').name,
 
             'created_by',
@@ -95,8 +96,21 @@ class ExerciseSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """Custom validation for unique_together constraint."""
+
         request = self.context.get("request")
         user = request.user
+
+        if not self.instance:
+            # Get user-specific limit from UserProfile
+            user_limit = user.workout_manager_limitation.exercise_limitation
+
+            # Check if user exceeded the limit
+            exercise_count = Exercise.objects.filter(created_by=user).count()
+            if exercise_count >= user_limit:
+                raise ValidationError({
+                    "non_field_errors": [f"You can create a maximum of {user_limit} exercises."]
+                })
+
 
         # Check if an identical Exercise already exists
 
@@ -115,6 +129,11 @@ class ExerciseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "non_field_errors": ["An exercise with these exact details already exists."]
             })
+        
+        if self.instance and self.instance.is_published:
+            # Check if there are any subscribers to the exercise
+            if Exercise.objects.filter(original=self.instance).exists():
+                raise serializers.ValidationError("Cannot update a published exercise with subscribers.")
 
         return data
     
@@ -206,11 +225,35 @@ class WorkoutSerializer(serializers.ModelSerializer):
             Workout._meta.get_field('id').name,
             Workout._meta.get_field('changed_at').name,
             Workout._meta.get_field('is_public').name,
+            Workout._meta.get_field('is_published').name,
             Workout._meta.get_field('is_archived').name,
 
             'created_by',
             'original',
         ]
+
+    def validate(self, attrs):
+
+        request = self.context.get("request")
+        user = request.user
+
+        if not self.instance:
+            # Get user-specific limit from UserProfile
+            user_limit = user.workout_manager_limitation.workout_limitation
+
+            # Check if user exceeded the limit
+            workout_count = Workout.objects.filter(created_by=user).count()
+            if workout_count >= user_limit:
+                raise ValidationError({
+                    "non_field_errors": [f"You can create a maximum of {user_limit} workouts."]
+                })
+
+        if self.instance and self.instance.is_published:
+            # Check if there are any subscribers to the exercise
+            if Workout.objects.filter(original=self.instance).exists():
+                raise serializers.ValidationError("Cannot update a published workout with subscribers.")
+            
+        return super().validate(attrs)
 
     def create(self, validated_data):
         workout_exercises_data = validated_data.pop('exercises', [])
@@ -329,11 +372,36 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
             WeeklyFitnessPlan._meta.get_field('id').name,
             WeeklyFitnessPlan._meta.get_field('changed_at').name,
             WeeklyFitnessPlan._meta.get_field('is_public').name,
+            WeeklyFitnessPlan._meta.get_field('is_published').name,
             WeeklyFitnessPlan._meta.get_field('is_archived').name,
 
             'created_by',
             'original',
         ]
+    
+
+    def validate(self, attrs):
+
+        request = self.context.get("request")
+        user = request.user
+
+        if not self.instance:
+            # Get user-specific limit from UserProfile
+            user_limit = user.workout_manager_limitation.plans_limitation
+
+            # Check if user exceeded the limit
+            plans_count = WeeklyFitnessPlan.objects.filter(created_by=user).count()
+            if plans_count >= user_limit:
+                raise ValidationError({
+                    "non_field_errors": [f"You can create a maximum of {user_limit} plans."]
+                })
+
+        if self.instance and self.instance.is_published:
+            # Check if there are any subscribers to the exercise
+            if WeeklyFitnessPlan.objects.filter(original=self.instance).exists():
+                raise serializers.ValidationError("Cannot update a published weekly plan with subscribers.")
+            
+        return super().validate(attrs)
 
 
     def create(self, validated_data):

@@ -24,23 +24,25 @@ from workout_manager.serializers import (
     WeeklyFitnessPlanWorkoutSerializer,
 )
 from users.models import CustomUser
+from rest_framework.parsers import MultiPartParser, FormParser
+from workout_manager.Services import originality_service
 
 
 class ExerciseView(APIView):
-    http_method_names = ['get', 'post', 'put', 'delete']
-    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+    http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        if self.request.method in ['POST', 'PUT', 'DELETE']:
+        if self.request.method in ['POST']:
             return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
         exercises = Exercise.objects.filter(is_public=True)
-        exercises += Exercise.objects.filter(created_by=request.user)
+        exercises += Exercise.objects.filter(created_by=request.user, is_archived=False)
 
         serialized_exercises = []
 
@@ -55,477 +57,545 @@ class ExerciseView(APIView):
             serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExerciseDetailView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    http_method_names = ['get', 'put', 'delete']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        if self.request.method in ['PUT', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request, exercise_id):
+        exercise = get_object_or_404(Exercise, pk=exercise_id)
+        if exercise.is_public or exercise.created_by != request.user:
+            serializer = ExerciseSerializer(exercise)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
     
     def put(self, request, exercise_id):
-
-
-
-
-# class ExerciseView(APIView):
-#     http_method_names = ['get', 'post']
-#     permission_classes = [IsAuthenticated]
-#     authentication_classes = [JWTAuthentication]
-
-#     def get_permissions(self):
-#         if self.request.method == 'GET':
-#             # Allow any user to access GET requests
-#             return [AllowAny()]
-#         # Require authentication for other methods
-#         return [IsAuthenticated()]
-
-#     def get(self, request):
-#         exercises = []
-
-#         for exercise in Exercise.objects.filter(is_public=True):
-#             exercises.append(ExerciseSerializer(exercise).data)
-
-#         if request.user.is_authenticated:
-#             same_email_users = CustomUser.objects.filter(
-#                 email=request.user.email
-#             )
-#             # ------ changed part for same email users ------
-#             for user in same_email_users:
-#                 created_by_exercises = Exercise.objects.filter(
-#                     created_by=user
-#                 )
-#                 for exercise in created_by_exercises:
-#                     exercises.append(ExerciseSerializer(exercise).data)
-
-#                 shared_with_exercises = Exercise.objects.filter(
-#                     shared_with=user
-#                 )
-#                 for exercise in shared_with_exercises:
-#                     exercises.append(ExerciseSerializer(exercise).data)
-#             # ------ end of part for same email users ------
-
-#         return Response(exercises, status=status.HTTP_200_OK)
-
-#     def post(self, request):
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = True
-#         request.data["is_public"] = False
-#         request.data["created_by"] = request.user.id
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = False
-
-#         serializer = ExerciseSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(
-#                 serializer.data, status=status.HTTP_201_CREATED
-#             )
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# class ExerciseDetailView(APIView):
-#     http_method_names = ['get', 'put', 'delete']
-#     permission_classes = [IsAuthenticated]
-#     authentication_classes = [JWTAuthentication]
-
-#     def get_permissions(self):
-#         if self.request.method == 'GET':
-#             # Allow any user to access GET requests
-#             return [AllowAny()]
-#         # Require authentication for other methods
-#         return [IsAuthenticated()]
-
-#     def get(self, request, exercise_id):
-#         exercise = get_object_or_404(Exercise, pk=exercise_id)
-
-#         if exercise.is_public:
-#             return Response(
-#                 ExerciseSerializer(exercise).data,
-#                 status=status.HTTP_200_OK,
-#             )
-
-#         if request.user.is_authenticated:
-#             if (
-#                 # ------ changed part for same email users ------
-#                 check_user_in_created_or_shared(
-#                     user=request.user,
-#                     created_by=exercise.created_by,
-#                     shared_with=exercise.shared_with.all()
-#                 )
-#                 # ------ end of part for same email users ------
-#             ):
-#                 return Response(
-#                     ExerciseSerializer(exercise).data,
-#                     status=status.HTTP_200_OK,
-#                 )
-
-#         return Response({'message': 'Exercise is not available'},
-#                         status=status.HTTP_403_FORBIDDEN)
-
-#     def put(self, request, exercise_id):
-#         exercise = get_object_or_404(Exercise, pk=exercise_id)
-
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = True
-#         request.data["public"] = False
-#         request.data["created_by"] = exercise.created_by.id
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = False
-
-#         if (
-#             request.user.is_authenticated and
-#             # ------ changed part for same email users ------
-#             check_user_in_created_or_shared(
-#                 user=request.user,
-#                 created_by=exercise.created_by,
-#             )
-#             # ------ end of part for same email users ------
-#         ):
-#             serializer = ExerciseSerializer(
-#                 exercise, data=request.data, partial=True
-#             )
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 return Response(serializer.data,
-#                                 status=status.HTTP_200_OK)
-#             return Response(
-#                 serializer.errors, status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         return Response(
-#             {'message': 'You are not authorized to edit this exercise.'},
-#             status=status.HTTP_403_FORBIDDEN
-#         )
-
-#     def delete(self, request, exercise_id):
-#         exercise = get_object_or_404(Exercise, pk=exercise_id)
-
-#         # ------ changed part for same email users ------
-#         same_email_users = CustomUser.objects.filter(
-#             email=request.user.email
-#         )
-#         # ------ end of part for same email users ------
-
-#         if (
-#             request.user.is_authenticated and
-#             # ------ changed part for same email users ------
-#             check_user_in_created_or_shared(
-#                     user=request.user,
-#                     created_by=exercise.created_by,
-#                     same_email_users=same_email_users,
-#             )
-#             # ------ end of part for same email users ------
-#         ):
-#             exercise.created_by = None
-#             exercise.save()
-#             return Response(
-#                 {
-#                     'message':
-#                     'Exercise deleted from ' +
-#                     'user_created_exercises successfully'
-#                 },
-#                 status=status.HTTP_200_OK
-#             )
-#         if (
-#             request.user.is_authenticated and
-#             # ------ changed part for same email users ------
-#             check_user_in_created_or_shared(
-#                     user=request.user,
-#                     shared_with=exercise.shared_with.all(),
-#             )
-#             # ------ end of part for same email users ------
-#         ):
-#             # ------ changed part for same email users ------
-#             for user in same_email_users:
-#                 exercise.shared_with.remove(user)
-#             # ------ end of part for same email users ------
-#             return Response(
-#                 {'message': 'Exercise removed from shared_with successfully'},
-#                 status=status.HTTP_200_OK
-#             )
-
-#         return Response(
-#             {'message': 'You are not authorized to delete this exercise.'},
-#             status=status.HTTP_403_FORBIDDEN
-#         )
-
-
-# class WorkoutExerciseView(APIView):
-#     http_method_names = ['get', 'delete']
-#     permission_classes = [IsAuthenticated]
-#     authentication_classes = [JWTAuthentication]
-
-#     def get_permissions(self):
-#         return [IsAuthenticated()]
-
-#     def get(self, request, exercise_id):
-#         exercise = get_object_or_404(Exercise, pk=exercise_id)
-
-#         workout_exercises = []
-
-#         # ------ changed part for same email users ------
-#         same_email_users = CustomUser.objects.filter(
-#             email=request.user.email
-#         )
-
-#         for user in same_email_users:
-#             available_for_workout_exercises = WorkoutExercise.objects.filter(
-#                 available_for=user,
-#                 exercise=exercise,
-#             )
-#             for workout_exercise in available_for_workout_exercises:
-#                 workout_exercises.append(
-#                     workout_exercise
-#                 )
-#         # ------ end of part for same email users ------
-
-#         response_workout_exercises = []
-#         new_workout_exercises_data = []
-
-#         for workout_exercise in workout_exercises:
-#             data = [
-#                     workout_exercise.sets,
-#                     workout_exercise.reps,
-#                     workout_exercise.rest_time,
-#             ]
-#             if data not in new_workout_exercises_data:
-#                 response_workout_exercises.append(workout_exercise)
-#                 new_workout_exercises_data.append(data)
-
-#         response_data = []
-
-#         for workout_exercise in response_workout_exercises:
-#             response_data.append(
-#                 WorkoutExerciseSerializer(workout_exercise).data
-#             )
-
-#         return Response(response_data, status=status.HTTP_200_OK)
-
-#     def delete(self, request, exercise_id):
-#         exercise = get_object_or_404(Exercise, pk=exercise_id)
-
-#         # ------ part for same email users ------
-#         same_email_users = CustomUser.objects.filter(
-#             email=request.user.email
-#         )
-#         for user in same_email_users:
-#             available_for_workout_exercises = WorkoutExercise.objects.filter(
-#                 available_for=user,
-#                 exercise=exercise
-#             )
-#             for workout_exercise in available_for_workout_exercises:
-#                 workout_exercise.available_for.remove(user)
-#         # ------ end of part for same email users ------
-
-#         return Response(
-#             {
-#                 'message':
-#                 'WorkoutExercise removed from available_for successfully'
-#             },
-#             status=status.HTTP_200_OK
-#         )
-
-
-# class WorkoutDetailView(APIView):
-#     http_method_names = ['get', 'put', 'delete']
-#     permission_classes = [IsAuthenticated]
-#     authentication_classes = [JWTAuthentication]
-
-#     def get_permissions(self):
-#         if self.request.method == 'GET':
-#             # Allow any user to access GET requests
-#             return [AllowAny()]
-#         # Require authentication for other methods
-#         return [IsAuthenticated()]
-
-#     def get(self, request, workout_id):
-#         workout = get_object_or_404(Workout, pk=workout_id)
-
-#         if workout.is_public:
-#             return Response(
-#                 WorkoutSerializer(workout).data,
-#                 status=status.HTTP_200_OK,
-#             )
-
-#         if request.user.is_authenticated:
-#             if (
-#                 # ------ changed part for same email users ------
-#                 check_user_in_created_or_shared(
-#                     created_by=workout.created_by,
-#                     shared_with=workout.shared_with.all(),
-#                     user=request.user,
-#                 )
-#                 # ------ end of part for same email users ------
-#             ):
-#                 return Response(
-#                     WorkoutSerializer(workout).data,
-#                     status=status.HTTP_200_OK,
-#                 )
-
-#         return Response({'message': 'Workout is not available'},
-#                         status=status.HTTP_403_FORBIDDEN)
-
-#     def put(self, request, workout_id):
-#         workout = get_object_or_404(Workout, pk=workout_id)
-
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = True
-#         request.data["public"] = False
-#         request.data["created_by"] = workout.created_by.id
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = False
-
-#         if (
-#             request.user.is_authenticated and
-#             # ------ changed part for same email users ------
-#             check_user_in_created_or_shared(
-#                 user=request.user,
-#                 created_by=workout.created_by,
-#             )
-#             # ------ end of part for same email users ------
-#         ):
-#             serializer = WorkoutSerializer(
-#                 workout, data=request.data, partial=True
-#             )
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 return Response(serializer.data,
-#                                 status=status.HTTP_200_OK)
-#             return Response(
-#                 serializer.errors, status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         return Response(
-#             {'message': 'You are not authorized to edit this exercise.'},
-#             status=status.HTTP_403_FORBIDDEN
-#         )
-
-#     def delete(self, request, workout_id):
-#         workout = get_object_or_404(Workout, pk=workout_id)
-
-#         # ------ changed part for same email users ------
-#         same_email_users = CustomUser.objects.filter(
-#             email=request.user.email
-#         )
-#         # ------ end of part for same email users ------
-
-#         if (
-#             request.user.is_authenticated and
-#             # ------ changed part for same email users ------
-#             check_user_in_created_or_shared(
-#                 user=request.user,
-#                 created_by=workout.created_by,
-#                 same_email_users=same_email_users,
-#             )
-#             # ------ end of part for same email users ------
-#         ):
-#             if request.data.get(
-#                 'delete_from_all_shared_with', False
-#             ) == 'true':
-#                 for workout_exercise in workout.workout_exercises.all():
-#                     workout_exercise.delete()
-#                 workout.delete()
-#                 return Response(
-#                     {'message': 'Workout deleted successfully'},
-#                     status=status.HTTP_200_OK
-#                 )
-#             else:
-#                 workout.created_by = None
-#                 workout.save()
-#                 return Response(
-#                     {
-#                         'message':
-#                         'Workout deleted from ' +
-#                         'user_created_workouts successfully'
-#                     },
-#                     status=status.HTTP_200_OK
-#                 )
-#         if (
-#             request.user.is_authenticated and
-#             # ------ changed part for same email users ------
-#             check_user_in_created_or_shared(
-#                 user=request.user,
-#                 shared_with=workout.shared_with.all(),
-#             )
-#             # ------ end of part for same email users ------
-#         ):
-#             if request.data.get(
-#                 'delete_all_connected_exercises_and_workout_exercises', False
-#             ) == 'true':
-#                 # ------ changed part for same email users ------
-#                 for user in same_email_users:
-#                     for exercise in workout.exercises.all():
-#                         if user in exercise.shared_with.all():
-#                             exercise.shared_with.remove(user)
-#                         if exercise.created_by == user:
-#                             exercise.created_by = None
-#                         exercise.save()
-#                     for workout_exercise in workout.workout_exercises.filter(
-#                         workout=workout
-#                     ):
-#                         if user in workout_exercise.available_for.all():
-#                             workout_exercise.shared_with.remove(user)
-#             for user in same_email_users:
-#                 if user in workout.shared_with.all():
-#                     workout.shared_with.remove(request.user)
-#             # ------ end of part for same email users ------
-#             return Response(
-#                 {'message': 'Workout removed from shared_with successfully'},
-#                 status=status.HTTP_200_OK
-#             )
-
-#         return Response(
-#             {'message': 'You are not authorized to delete this exercise.'},
-#             status=status.HTTP_403_FORBIDDEN
-#         )
-
-
-# class WorkoutView(APIView):
-#     http_method_names = ['get', 'post']
-#     permission_classes = [IsAuthenticated]
-#     authentication_classes = [JWTAuthentication]
-
-#     def get_permissions(self):
-#         if self.request.method == 'GET':
-#             # Allow any user to access GET requests
-#             return [AllowAny()]
-#         # Require authentication for other methods
-#         return [IsAuthenticated()]
-
-#     def get(self, request):
-#         workouts = []
-
-#         # ------ changed part for same email users ------
-#         same_email_users = CustomUser.objects.filter(
-#             email=request.user.email
-#         )
-#         # ------ end of part for same email users ------
-
-#         for workout in Workout.objects.filter(is_public=True):
-#             workouts.append(WorkoutSerializer(workout).data)
-
-#         if request.user.is_authenticated:
-#             # ------ changed part for same email users ------
-#             for user in same_email_users:
-#                 created_by_workouts = Workout.objects.filter(
-#                     created_by=user
-#                 )
-#                 for workout in created_by_workouts:
-#                     workouts.append(WorkoutSerializer(workout).data)
-
-#                 shared_with_workouts = Workout.objects.filter(
-#                     shared_with=user
-#                 )
-#                 for workout in shared_with_workouts:
-#                     workouts.append(WorkoutSerializer(workout).data)
-#             # ------ end of part for same email users ------
-
-#         return Response(workouts, status=status.HTTP_200_OK)
-
-#     def post(self, request):
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = True
-#         request.data["public"] = False
-#         request.data["created_by"] = request.user.id
-#         if isinstance(request.data, QueryDict):  # optional
-#             request.data._mutable = False
-
-#         serializer = WorkoutSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        exercise = get_object_or_404(Exercise, pk=exercise_id)
+        if exercise.created_by == request.user:
+            serializer = ExerciseSerializer(exercise, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+    
+    def delete(self, request, exercise_id):
+        exercise = get_object_or_404(Exercise, pk=exercise_id)
+        
+        # Check if the exercise is associated with any workouts
+        if WorkoutExercise.objects.filter(exercise=exercise).exists():
+            return Response(
+                {"error": "Данное упражнение используется как минимум в одной тренировке. Измените тренировки и попробуйте ещё раз."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if exercise.is_published:
+            if Exercise.objects.filter(original=exercise).exists():
+                return Response(
+                    {"error": "Данное упражнение опубликовано и имеет подписчиков. Его нельзя удалить."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if exercise.created_by == request.user:
+            exercise.delete()
+            return Response(
+            {"message": "Exercise deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+        
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class ArchivedExerciseView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        exercises = Exercise.objects.filter(created_by=request.user, is_archived=True)
+
+        serialized_exercises = []
+
+        for exercise in exercises:
+            serialized_exercises.append(ExerciseSerializer(exercise).data)
+
+        return Response(serialized_exercises, status=status.HTTP_200_OK)
+
+class ArchivedExercisesDetailView(APIView):
+    http_method_names = ['patch']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'PATCH':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def patch(self, request, exercise_id):
+        exercise = get_object_or_404(Exercise, pk=exercise_id)
+        if exercise.created_by == request.user and exercise.original:
+            exercise.is_archived = not exercise.is_archived
+            exercise.save()
+
+            return Response(
+                {"message": "Exercise archived successfully." if exercise.is_archived else "Exercise unarchived successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class WorkoutView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    http_method_names = ['get', 'post']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        if self.request.method in ['POST']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        workouts = Workout.objects.filter(is_public=True)
+        workouts += Workout.objects.filter(created_by=request.user, is_archived=False)
+
+        serialized_workouts = []
+
+        for workout in workouts:
+            serialized_workouts.append(WorkoutSerializer(workout).data)
+
+        return Response(serialized_workouts, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        serializer = WorkoutSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class WorkoutDetailView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    http_method_names = ['get', 'put', 'delete']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        if self.request.method in ['PUT', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request, workout_id):
+        workout = get_object_or_404(Workout, pk=workout_id)
+        if workout.is_public or workout.created_by != request.user:
+            serializer = WorkoutSerializer(workout)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+    
+    def put(self, request, workout_id):
+        workout = get_object_or_404(Workout, pk=workout_id)
+        if workout.created_by == request.user:
+            serializer = WorkoutSerializer(workout, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+    
+    def delete(self, request, workout_id):
+        workout = get_object_or_404(Workout, pk=workout_id)
+        
+        # Check if the exercise is associated with any workouts
+        if WeeklyFitnessPlanWorkout.objects.filter(workout=workout).exists():
+            return Response(
+                {"error": "Данная тренировка используется как минимум в одном недельном плане. Измените недельные планы и попробуйте ещё раз."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if workout.is_published:
+            if Workout.objects.filter(original=workout).exists():
+                return Response(
+                    {"error": "Данная тренировка опубликована и имеет подписчиков. Ее нельзя удалить."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if workout.created_by == request.user:
+            workout.delete()
+            return Response(
+            {"message": "Workout deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+        
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+class ArchivedWorkoutView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        workouts = Workout.objects.filter(created_by=request.user, is_archived=True)
+
+        serialized_workouts = []
+
+        for workout in workouts:
+            serialized_workouts.append(WorkoutSerializer(workout).data)
+
+        return Response(serialized_workouts, status=status.HTTP_200_OK)
+
+class ArchivedWorkoutDetailView(APIView):
+    http_method_names = ['patch']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'PATCH':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def patch(self, request, workout_id):
+        workout = get_object_or_404(Workout, pk=workout_id)
+        if workout.created_by == request.user and workout.original:
+            workout.is_archived = not workout.is_archived
+            workout.save()
+
+            return Response(
+                {"message": "Workout archived successfully." if workout.is_archived else "Workout unarchived successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class WorkoutSubscriptionView(APIView):
+    http_method_names = ['post']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def post(self, request, workout_id):
+        workout = get_object_or_404(Workout, pk=workout_id)
+
+        if workout.is_published:
+            workout.clone_for_user(request.user)
+
+            return Response(
+                {"message": "Subscribed on workout successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class WorkoutPublishDetailView(APIView):
+    http_method_names = ['post', 'delete']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method in ['POST', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def post(self, request, workout_id):
+        workout = get_object_or_404(Exercise, pk=workout_id)
+
+        count_all, count_not_original = originality_service.get_workout_originality_values(workout.id, request.user.id)
+
+        is_original = originality_service.get_originality(count_all, count_not_original)
+
+        if is_original:
+            workout.is_published = True
+            workout.save()
+
+            return Response(
+                {"message": "Workout published successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Использовано слишком много чужих элементов, низкая оригинальность"}, status=status.HTTP_400_BAD_REQUEST)\
+        
+    def delete(self, request, workout_id):
+        workout = get_object_or_404(Exercise, pk=workout_id)
+
+        if workout.created_by == request.user:
+            if Workout.objects.filter(original=workout).exists():
+                return Response(
+                    {"error": "Данная тренировка опубликована и имеет подписчиков. Ее нельзя удалить из публичных тренировок."},
+            )
+
+            workout.is_published = False
+            workout.save()
+
+            return Response(
+                {"message": "Workout unpublished successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+class WorkoutPublishView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        workouts = Workout.objects.filter(is_published=True)
+
+        serialized_plans = []
+
+        for workout in workouts:
+            serialized_plans.append(WeeklyFitnessPlanSerializer(workout).data)
+
+        return Response(serialized_plans, status=status.HTTP_200_OK)
+
+
+class WeeklyFitnessPlanView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    http_method_names = ['get', 'post']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        if self.request.method in ['POST']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        plans = WeeklyFitnessPlan.objects.filter(is_public=True)
+        plans += WeeklyFitnessPlan.objects.filter(created_by=request.user, is_archived=False)
+
+        serialized_plans = []
+
+        for plan in plans:
+            serialized_plans.append(WeeklyFitnessPlanSerializer(plan).data)
+
+        return Response(serialized_plans, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        serializer = WeeklyFitnessPlanSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class WeeklyFitnessPlanDetailView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    http_method_names = ['get', 'put', 'delete']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        if self.request.method in ['PUT', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request, plan_id):
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+        if plan.is_public or plan.created_by != request.user:
+            serializer = WeeklyFitnessPlanSerializer(plan)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+    
+    def put(self, request, plan_id):
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+        if plan.created_by == request.user:
+            serializer = WeeklyFitnessPlanSerializer(plan, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+    
+    def delete(self, request, plan_id):
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+        
+        if plan.is_published:
+            if WeeklyFitnessPlan.objects.filter(original=plan).exists():
+                return Response(
+                    {"error": "Данный недельный план опубликован и имеет подписчиков. Его нельзя удалить."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if plan.created_by == request.user:
+            plan.delete()
+            return Response(
+            {"message": "Workout deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+        
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+class ArchivedWeeklyFitnessPlanView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        plans = WeeklyFitnessPlan.objects.filter(created_by=request.user, is_archived=True)
+
+        serialized_plans = []
+
+        for plan in plans:
+            serialized_plans.append(WeeklyFitnessPlanSerializer(plan).data)
+
+        return Response(serialized_plans, status=status.HTTP_200_OK)
+
+class ArchivedWeeklyFitnessPlanDetailView(APIView):
+    http_method_names = ['patch']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'PATCH':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def patch(self, request, plan_id):
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+        if not plan.original:
+            return Response({"error": "This plan is original"}, status=status.HTTP_400_BAD_REQUEST)
+        if plan.created_by == request.user and plan.original:
+            plan.is_archived = not plan.is_archived
+            plan.save()
+
+            return Response(
+                {"message": "Plan archived successfully." if plan.is_archived else "Plan unarchived successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class WeeklyFitnessPlanSubscriptionView(APIView):
+    http_method_names = ['post']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def post(self, request, plan_id):
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+
+        if plan.is_published:
+            plan.clone_for_user(request.user)
+
+            return Response(
+                {"message": "Subscribed on plan successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class WeeklyFitnessPlanPublishDetailView(APIView):
+    http_method_names = ['get', 'post', 'delete']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method in ['POST', 'DELETE']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def post(self, request, plan_id):
+        
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+
+        count_all, count_not_original = originality_service.get_plan_originality_values(plan.id, request.user.id)
+
+        is_original = originality_service.get_originality(count_all, count_not_original)
+
+        if is_original:
+            plan.is_published = True
+            plan.save()
+
+            return Response(
+                {"message": "Plan published successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Использовано слишком много чужих элементов, низкая оригинальность"}, status=status.HTTP_400_BAD_REQUEST)\
+        
+    def delete(self, request, plan_id):
+        plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
+
+        if plan.created_by == request.user:
+            if WeeklyFitnessPlan.objects.filter(original=plan).exists():
+                return Response(
+                    {"error": "Данный план опубликован и имеет подписчиков. Его нельзя удалить из публичных планов."},
+            )
+
+            plan.is_published = False
+            plan.save()
+
+            return Response(
+                {"message": "Plan unpublished successfully."},
+                status=status.HTTP_200_OK
+            )
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class WeeklyFitnessPlanPublishView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        plans = WeeklyFitnessPlan.objects.filter(is_published=True)
+
+        serialized_plans = []
+
+        for plan in plans:
+            serialized_plans.append(WeeklyFitnessPlanSerializer(plan).data)
+
+        return Response(serialized_plans, status=status.HTTP_200_OK)
+
+class DataForExerciseCreationView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        gym_equipment = GymEquipment.objects.all()
+        exercise_categories = ExerciseCategory.objects.all()
+
+        serialized_gym_equipment = GymEquipmentSerializer(gym_equipment, many=True).data
+        serialized_exercise_categories = ExerciseCategorySerializer(exercise_categories, many=True).data
+        data = dict()
+        data['gym_equipment'] = serialized_gym_equipment
+        data['exercise_categories'] = serialized_exercise_categories
+
+
+        return Response(data, status=status.HTTP_200_OK)
