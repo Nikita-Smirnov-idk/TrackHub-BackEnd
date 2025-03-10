@@ -9,6 +9,7 @@ from users.serializers import (
                                 AvatarSerializer,
                             )
 from users.models import Review, CustomUser
+from users.Services.send_email_service import send_email_to_user
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -22,6 +23,9 @@ from django.conf import settings
 from django.core.mail import send_mail
 import jwt
 from datetime import datetime, timedelta
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+import os
 
 
 class LogoutView(APIView):
@@ -216,25 +220,7 @@ class AccountView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        email = request.data.get('email')
-
-        user = CustomUser.objects.get(email=email)
-
-        token_payload = {
-            'user_id': user.id,
-            'exp': datetime.utcnow() + timedelta(hours=24),
-        }
-        token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm='HS256')
-
-        confirm_url = f"TrackHub://verify-email?token={token}"
-
-        send_mail(
-            subject="Подтверждение регистрации",
-            message=f"Подтвердите ваш email:\n\n{confirm_url}\n\nСсылка действительна 24 часа.",
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
-            fail_silently=False,
-        )
+        send_email_to_user(request.user.email)
 
         return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_200_OK)
         
@@ -309,26 +295,7 @@ class EmailSendView(APIView):
     permission_classes=[IsAuthenticated]
 
     def post(self, request):
-        user = CustomUser.objects.get(email=request.user.email)
-
-        # Создание токена для email
-        token_payload = {
-            'user_id': user.id,
-            'exp': datetime.now() + timedelta(hours=24),
-        }
-        token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm='HS256')
-
-        # Ссылка для iOS приложения
-        confirm_url = f"TrackHub://verify-email?token={token}"
-
-        # Отправка письма
-        send_mail(
-            subject="Подтверждение регистрации",
-            message=f"Подтвердите ваш email:\n\n{confirm_url}\n\nСсылка действительна 24 часа.",
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[request.user.email],
-            fail_silently=False,
-        )
+        send_email_to_user(request.user.email)
 
         return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_200_OK)
     

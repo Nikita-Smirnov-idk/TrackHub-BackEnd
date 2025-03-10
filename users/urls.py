@@ -30,8 +30,8 @@ urlpatterns = [
     path('account/avatar/', AvatarView.as_view(), name='avatar'),
 
     # Emails
-    path('email/send', EmailSendView.as_view(), name='email_send'),
-    path('email/verificate', EmailVerificateView.as_view(), name='email_verificate'),
+    path('email/send/', EmailSendView.as_view(), name='email_send'),
+    path('email/verificate/', EmailVerificateView.as_view(), name='email_verificate'),
 
     # Reviews
     path('reviews/', ReviewView.as_view(), name='review'),
