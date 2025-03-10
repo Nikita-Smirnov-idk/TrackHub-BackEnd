@@ -149,6 +149,7 @@ class ExerciseSerializer(serializers.ModelSerializer):
 class WorkoutExerciseSerializer(serializers.ModelSerializer):
     exercise = serializers.PrimaryKeyRelatedField(
         queryset=Exercise.objects.all(),
+        required=True,
     )
     workout = serializers.PrimaryKeyRelatedField(
         queryset=Workout.objects.all(),
@@ -195,7 +196,7 @@ class WorkoutExerciseSerializer(serializers.ModelSerializer):
 
 
 class WorkoutSerializer(serializers.ModelSerializer):
-    exercises = WorkoutExerciseSerializer(many=True, required=False)
+    workout_exercises = WorkoutExerciseSerializer(many=True, required=False)
 
     created_by = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
@@ -221,7 +222,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
             Workout._meta.get_field('is_archived').name,
             
             'created_by',
-            'exercises',
+            'workout_exercises',
             'original',
         ]
         read_only_fields = [
@@ -258,8 +259,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        workout_exercises_data = validated_data.pop('exercises', [])
-        print(workout_exercises_data)
+        workout_exercises_data = validated_data.pop('workout_exercises', [])
 
         # Создаем Workout
         workout = Workout.objects.create(**validated_data)
@@ -277,7 +277,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
         return workout
 
     def update(self, instance, validated_data):
-        workout_exercises_data = validated_data.pop('exercises', [])
+        workout_exercises_data = validated_data.pop('workout_exercises', [])
 
         # Обновляем Workout
         super().update(instance, validated_data)
@@ -300,7 +300,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['exercises'] = WorkoutExerciseSerializer(instance.exercises, many=True).data
+        data['workout_exercises'] = WorkoutExerciseSerializer(instance.workout_exercises, many=True).data
         data['created_by'] = CustomUserPreviewSerializer(instance.created_by).data
         data['original'] = instance.original.id if instance.original else ""
         return data

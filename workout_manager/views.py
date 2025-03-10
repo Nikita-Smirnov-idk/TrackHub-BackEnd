@@ -119,7 +119,7 @@ class ExerciseDetailView(APIView):
     
     def get(self, request, exercise_id):
         exercise = get_object_or_404(Exercise, pk=exercise_id)
-        if exercise.is_public or exercise.created_by != request.user:
+        if exercise.is_public or exercise.created_by == request.user:
             serializer = ExerciseSerializer(exercise)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
@@ -274,7 +274,7 @@ class WorkoutDetailView(APIView):
     
     def get(self, request, workout_id):
         workout = get_object_or_404(Workout, pk=workout_id)
-        if workout.is_public or workout.created_by != request.user:
+        if workout.is_public or workout.created_by == request.user:
             serializer = WorkoutSerializer(workout)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
@@ -516,7 +516,7 @@ class WeeklyFitnessPlanDetailView(APIView):
     
     def get(self, request, plan_id):
         plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
-        if plan.is_public or plan.created_by != request.user:
+        if plan.is_public or plan.created_by == request.user:
             serializer = WeeklyFitnessPlanSerializer(plan)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)

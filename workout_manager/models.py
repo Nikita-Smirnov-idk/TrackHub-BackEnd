@@ -276,14 +276,14 @@ class WorkoutExercise(models.Model):
 
     def __str__(self):
         return (f"exercise is {self.exercise.name} with " +
-                f"{self.sets} sets and {self.reps} reps")
+                f"{self.sets} sets and {self.value} reps/secs")
     
     def save(self, *args, **kwargs):
         """Automatically assign the next order if not set."""
-        if not self.order:
-            last_order = WorkoutExercise.objects.filter(workout=self.workout).count()
-            print(last_order + 1)
-            self.order = last_order + 1  # Assign the next order
+
+        last_order = WorkoutExercise.objects.filter(workout=self.workout).count()
+        self.order = last_order + 1
+
         super().save(*args, **kwargs)
 
 
