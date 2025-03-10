@@ -11,16 +11,13 @@ from workout_manager.models import (
 from users.models import CustomUser
 from users.serializers import CustomUserPreviewSerializer
 from rest_framework.exceptions import ValidationError
+from workout_manager.validators import validate_instructions
 
 
 class GymEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = GymEquipment
-        fields = [
-            GymEquipment._meta.get_field('id').name,
-            GymEquipment._meta.get_field('name').name,
-            GymEquipment._meta.get_field('image').name,
-        ]
+        fields = '__all__'
         read_only_fields = [GymEquipment._meta.get_field('id').name]
 
 
@@ -37,6 +34,7 @@ class ExerciseCategorySerializer(serializers.ModelSerializer):
 class ExerciseSerializer(serializers.ModelSerializer):
     original = serializers.PrimaryKeyRelatedField(
         queryset=Exercise.objects.all(),
+        required=False,
     )
 
     gym_equipment = serializers.PrimaryKeyRelatedField(
@@ -51,25 +49,28 @@ class ExerciseSerializer(serializers.ModelSerializer):
 
     created_by = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
+        required=False,
+    )
+    instructions = serializers.ListField(
+        child=serializers.CharField(),
+        validators=[validate_instructions],
+        required=True
     )
 
     class Meta:
         model = Exercise
         fields = [
             Exercise._meta.get_field('id').name,
-
             Exercise._meta.get_field('name').name,
             Exercise._meta.get_field('description').name,
-            Exercise._meta.get_field('instructions').name,
             Exercise._meta.get_field('changed_at').name,
-            Exercise._meta.get_field('preview').name,
-            Exercise._meta.get_field('video').name,
 
             Exercise._meta.get_field('is_measured_in_reps').name,
             Exercise._meta.get_field('is_public').name,
             Exercise._meta.get_field('is_published').name,
             Exercise._meta.get_field('is_archived').name,
 
+            'instructions',
             'original',
             'gym_equipment',
             'category',
@@ -88,17 +89,15 @@ class ExerciseSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['gym_equipment'] = ExerciseSerializer(instance.exercise).data
-        data['category'] = ExerciseCategorySerializer(instance.category).data
+        data['gym_equipment'] = GymEquipmentSerializer(instance.gym_equipment, many=True).data
+        data['category'] = ExerciseCategorySerializer(instance.category, many=True).data
         data['created_by'] = CustomUserPreviewSerializer(instance.created_by).data
-        data['original'] = instance.original.id
+        data['original'] = instance.original.id if instance.original else ""
         return data
     
     def validate(self, data):
         """Custom validation for unique_together constraint."""
-
-        request = self.context.get("request")
-        user = request.user
+        user = self.context['request'].user
 
         if not self.instance:
             # Get user-specific limit from UserProfile
@@ -114,21 +113,22 @@ class ExerciseSerializer(serializers.ModelSerializer):
 
         # Check if an identical Exercise already exists
 
-        original = Exercise.objects.get(id=data.get("original"))
+        if Exercise.objects.filter(id=data.get("original")).exists():
+            original = Exercise.objects.get(id=data.get("original"))
 
-        existing_exercise = Exercise.objects.filter(
-            name=data.get("name"),
-            description=data.get("description"),
-            preview=data.get("preview"),
-            video=data.get("video"),
-            created_by=user,
-            original=original,
-        ).exists()
+            existing_exercise = Exercise.objects.filter(
+                name=data.get("name"),
+                description=data.get("description"),
+                preview=data.get("preview"),
+                video=data.get("video"),
+                created_by=user,
+                original=original,
+            ).exists()
 
-        if existing_exercise:
-            raise serializers.ValidationError({
-                "non_field_errors": ["An exercise with these exact details already exists."]
-            })
+            if existing_exercise:
+                raise serializers.ValidationError({
+                    "non_field_errors": ["An exercise with these exact details already exists."]
+                })
         
         if self.instance and self.instance.is_published:
             # Check if there are any subscribers to the exercise
@@ -234,8 +234,7 @@ class WorkoutSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
 
-        request = self.context.get("request")
-        user = request.user
+        user = self.context['request'].user
 
         if not self.instance:
             # Get user-specific limit from UserProfile
@@ -313,8 +312,9 @@ class WorkoutSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['exercises'] = WorkoutExerciseSerializer(instance.exercises).data
+        data['exercises'] = WorkoutExerciseSerializer(instance.exercises, many=True).data
         data['created_by'] = CustomUserPreviewSerializer(instance.created_by).data
+        data['original'] = instance.original.id if instance.original else ""
         return data
     
 
@@ -378,12 +378,19 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
             'created_by',
             'original',
         ]
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['workouts'] = WeeklyFitnessPlanWorkoutSerializer(instance.workouts, many=True).data
+        data['created_by'] = CustomUserPreviewSerializer(instance.created_by).data
+        data['original'] = instance.original.id if instance.original else ""
+        return data
     
 
     def validate(self, attrs):
 
-        request = self.context.get("request")
-        user = request.user
+        user = self.context['request'].user
 
         if not self.instance:
             # Get user-specific limit from UserProfile

@@ -54,6 +54,7 @@ def create_gym_equipment(sender, **kwargs):
             ["Мина", "landmine.png"],
             ["Собственный вес", "personal_weight.png"],
         ]
+        GymEquipment.objects.all().delete()
         for equipment in gym_equipment:
             image_path = '/gym_equipment/' + equipment[1]
-            GymEquipment.objects.get_or_create(name=equipment[0], image=image_path)
+            gq, create = GymEquipment.objects.get_or_create(name=equipment[0], image=image_path)

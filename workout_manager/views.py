@@ -29,7 +29,6 @@ from workout_manager.Services import originality_service
 
 
 class ExerciseView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
@@ -52,7 +51,7 @@ class ExerciseView(APIView):
         return Response(serialized_exercises, status=status.HTTP_200_OK)
     
     def post(self, request):
-        serializer = ExerciseSerializer(data=request.data)
+        serializer = ExerciseSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -60,7 +59,6 @@ class ExerciseView(APIView):
 
 
 class ExerciseDetailView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ['get', 'put', 'delete']
     authentication_classes = [JWTAuthentication]
 
@@ -81,7 +79,7 @@ class ExerciseDetailView(APIView):
     def put(self, request, exercise_id):
         exercise = get_object_or_404(Exercise, pk=exercise_id)
         if exercise.created_by == request.user:
-            serializer = ExerciseSerializer(exercise, data=request.data, partial=True)
+            serializer = ExerciseSerializer(exercise, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -157,7 +155,6 @@ class ArchivedExercisesDetailView(APIView):
 
 
 class WorkoutView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
@@ -180,7 +177,7 @@ class WorkoutView(APIView):
         return Response(serialized_workouts, status=status.HTTP_200_OK)
     
     def post(self, request):
-        serializer = WorkoutSerializer(data=request.data)
+        serializer = WorkoutSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -188,7 +185,6 @@ class WorkoutView(APIView):
     
 
 class WorkoutDetailView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ['get', 'put', 'delete']
     authentication_classes = [JWTAuthentication]
 
@@ -209,7 +205,7 @@ class WorkoutDetailView(APIView):
     def put(self, request, workout_id):
         workout = get_object_or_404(Workout, pk=workout_id)
         if workout.created_by == request.user:
-            serializer = WorkoutSerializer(workout, data=request.data, partial=True)
+            serializer = WorkoutSerializer(workout, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -370,7 +366,6 @@ class WorkoutPublishView(APIView):
 
 
 class WeeklyFitnessPlanView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
@@ -393,7 +388,7 @@ class WeeklyFitnessPlanView(APIView):
         return Response(serialized_plans, status=status.HTTP_200_OK)
     
     def post(self, request):
-        serializer = WeeklyFitnessPlanSerializer(data=request.data)
+        serializer = WeeklyFitnessPlanSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -401,7 +396,6 @@ class WeeklyFitnessPlanView(APIView):
     
 
 class WeeklyFitnessPlanDetailView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ['get', 'put', 'delete']
     authentication_classes = [JWTAuthentication]
 
@@ -422,7 +416,7 @@ class WeeklyFitnessPlanDetailView(APIView):
     def put(self, request, plan_id):
         plan = get_object_or_404(WeeklyFitnessPlan, pk=plan_id)
         if plan.created_by == request.user:
-            serializer = WeeklyFitnessPlanSerializer(plan, data=request.data, partial=True)
+            serializer = WeeklyFitnessPlanSerializer(plan, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)

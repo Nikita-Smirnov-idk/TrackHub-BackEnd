@@ -34,11 +34,7 @@ class GymEquipment(models.Model):
 class Exercise(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True, null=True)
-    instructions = models.JSONField(
-        validators=[
-            validate_instructions
-        ]
-    )
+    instructions = models.JSONField(default=list, validators=[validate_instructions])
 
     category = models.ManyToManyField(
         'ExerciseCategory',
@@ -97,19 +93,6 @@ class Exercise(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.pk:
-            existing_exercise = Exercise.objects.filter(
-                name=self.name,
-                description=self.description,
-                preview=self.preview,
-                video=self.video,
-                created_by=self.created_by,
-                original=self.original,
-            ).first()
-
-            if existing_exercise:
-                return existing_exercise
-        
         if self.pk:
             old_instance = Exercise.objects.filter(pk=self.pk).first()
 
