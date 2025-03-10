@@ -46,12 +46,14 @@ class ExercisePublishedView(APIView):
 
 
 class ExercisePersonalView(APIView):
-    http_method_names = ['get']
+    http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
+        if self.request.method in ['POST']:
+            return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
@@ -60,6 +62,13 @@ class ExercisePersonalView(APIView):
         serialized_exercises = ExerciseSerializer(exercises, many=True).data
 
         return Response(serialized_exercises, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        serializer = ExerciseSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ExerciseSubcribedView(APIView):
@@ -81,14 +90,12 @@ class ExerciseSubcribedView(APIView):
 
 
 class ExerciseView(APIView):
-    http_method_names = ['get', 'post']
+    http_method_names = ['get']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        if self.request.method in ['POST']:
-            return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
@@ -97,13 +104,6 @@ class ExerciseView(APIView):
         serialized_exercises = ExerciseSerializer(exercises, many=True).data
 
         return Response(serialized_exercises, status=status.HTTP_200_OK)
-    
-    def post(self, request):
-        serializer = ExerciseSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ExerciseDetailView(APIView):
@@ -202,12 +202,14 @@ class ArchivedExercisesDetailView(APIView):
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
 class WorkoutPersonalView(APIView):
-    http_method_names = ['get']
+    http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
+        if self.request.method in ['POST']:
+            return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
@@ -216,6 +218,14 @@ class WorkoutPersonalView(APIView):
         serialized_workouts = WorkoutSerializer(workouts, many=True).data
 
         return Response(serialized_workouts, status=status.HTTP_200_OK)
+    
+
+    def post(self, request):
+        serializer = WorkoutSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class WorkoutSubcribedView(APIView):
@@ -236,14 +246,12 @@ class WorkoutSubcribedView(APIView):
 
 
 class WorkoutView(APIView):
-    http_method_names = ['get', 'post']
+    http_method_names = ['get']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        if self.request.method in ['POST']:
-            return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
@@ -252,13 +260,6 @@ class WorkoutView(APIView):
         serialized_workouts = WorkoutSerializer(workouts, many=True).data
 
         return Response(serialized_workouts, status=status.HTTP_200_OK)
-    
-    def post(self, request):
-        serializer = WorkoutSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 class WorkoutDetailView(APIView):
@@ -444,12 +445,14 @@ class WorkoutPublishView(APIView):
 
 
 class WeeklyFitnessPlanPersonalView(APIView):
-    http_method_names = ['get']
+    http_method_names = ['get', 'post']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
+        if self.request.method in ['POST']:
+            return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
@@ -458,6 +461,13 @@ class WeeklyFitnessPlanPersonalView(APIView):
         serialized_plans = WeeklyFitnessPlanSerializer(plans, many=True).data
 
         return Response(serialized_plans, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = WeeklyFitnessPlanSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class WeeklyFitnessPlanSubcribedView(APIView):
@@ -478,14 +488,12 @@ class WeeklyFitnessPlanSubcribedView(APIView):
 
 
 class WeeklyFitnessPlanView(APIView):
-    http_method_names = ['get', 'post']
+    http_method_names = ['get']
     authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        if self.request.method in ['POST']:
-            return [IsAuthenticated()]
         return super().get_permissions()
     
     def get(self, request):
@@ -494,13 +502,6 @@ class WeeklyFitnessPlanView(APIView):
         serialized_plans = WeeklyFitnessPlanSerializer(plans, many=True).data
 
         return Response(serialized_plans, status=status.HTTP_200_OK)
-    
-    def post(self, request):
-        serializer = WeeklyFitnessPlanSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save(created_by=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 class WeeklyFitnessPlanDetailView(APIView):

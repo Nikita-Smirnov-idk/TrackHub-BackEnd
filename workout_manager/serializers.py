@@ -312,6 +312,7 @@ class WeeklyFitnessPlanWorkoutSerializer(serializers.ModelSerializer):
     )
     weekly_fitness_plan = serializers.PrimaryKeyRelatedField(
         queryset=WeeklyFitnessPlan.objects.all(),
+        required=False
     )
     
 
@@ -330,14 +331,16 @@ class WeeklyFitnessPlanWorkoutSerializer(serializers.ModelSerializer):
     
 
 class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
-    workouts = WeeklyFitnessPlanWorkoutSerializer(many=True)
+    workouts = WeeklyFitnessPlanWorkoutSerializer(many=True, required=False, source="weekly_fitness_plan_workouts")
 
     original = serializers.PrimaryKeyRelatedField(
         queryset=WeeklyFitnessPlan.objects.all(),
+        required=False
     )
 
     created_by = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
+        required=False
     )
 
     class Meta:
@@ -370,7 +373,7 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['workouts'] = WeeklyFitnessPlanWorkoutSerializer(instance.workouts, many=True).data
+        data['workouts'] = WeeklyFitnessPlanWorkoutSerializer(instance.weekly_fitness_plan_workouts, many=True).data
         data['created_by'] = CustomUserPreviewSerializer(instance.created_by).data
         data['original'] = instance.original.id if instance.original else ""
         return data
