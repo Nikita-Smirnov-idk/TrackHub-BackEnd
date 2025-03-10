@@ -28,6 +28,23 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from workout_manager.Services import originality_service
 
 
+class ExercisePublishedView(APIView):
+    http_method_names = ['get']
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def get(self, request):
+        exercises = Exercise.objects.filter(created_by=request.user, is_published=True)
+
+        serialized_exercises = ExerciseSerializer(exercises, many=True).data
+
+        return Response(serialized_exercises, status=status.HTTP_200_OK)
+
+
 class ExercisePersonalView(APIView):
     http_method_names = ['get']
     authentication_classes = [JWTAuthentication]
