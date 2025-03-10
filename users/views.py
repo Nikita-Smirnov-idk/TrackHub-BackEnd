@@ -220,7 +220,8 @@ class AccountView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        send_email_to_user(request.user.email)
+        email = request.data.get('email')
+        send_email_to_user(email)
 
         return Response({"message": "На ваш email отправлена ссылка для подтверждения."}, status=status.HTTP_200_OK)
         
