@@ -55,8 +55,8 @@ urlpatterns = [
 
     path('workouts/subscribtion/<int:workout_id>/', WorkoutSubscriptionView.as_view(), name='workout_subscriptions_detail'),
 
-    path('workouts/publish/', WorkoutPublishView.as_view(), name='workout_publish'),
-    path('workouts/publish/<int:workout_id>/', WorkoutPublishDetailView.as_view(), name='workout_publish_detail'),
+    path('workouts/published/', WorkoutPublishView.as_view(), name='workout_publish'),
+    path('workouts/published/<int:workout_id>/', WorkoutPublishDetailView.as_view(), name='workout_publish_detail'),
 
     # Weekly Fitness Plans
     path('weekly_plans/', WeeklyFitnessPlanView.as_view(), name='weekly_plans'),
@@ -69,6 +69,6 @@ urlpatterns = [
 
     path('weekly_plans/subscribtion/<int:plan_id>/', WeeklyFitnessPlanSubscriptionView.as_view(), name='weekly_plan_subscriptions_detail'),
 
-    path('weekly_plans/publish/', WeeklyFitnessPlanPublishView.as_view(), name='weekly_plan_publish'),
-    path('weekly_plans/publish/<int:plan_id>/', WeeklyFitnessPlanPublishDetailView.as_view(), name='weekly_plan_publish_detail'),
+    path('weekly_plans/published/', WeeklyFitnessPlanPublishView.as_view(), name='weekly_plan_publish'),
+    path('weekly_plans/published/<int:plan_id>/', WeeklyFitnessPlanPublishDetailView.as_view(), name='weekly_plan_publish_detail'),
 ]
