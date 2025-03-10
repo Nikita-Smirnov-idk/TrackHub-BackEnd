@@ -331,7 +331,7 @@ class WeeklyFitnessPlanWorkoutSerializer(serializers.ModelSerializer):
     
 
 class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
-    workouts = WeeklyFitnessPlanWorkoutSerializer(many=True, required=False, source="weekly_fitness_plan_workouts")
+    weekly_fitness_plan_workouts = WeeklyFitnessPlanWorkoutSerializer(many=True, required=False)
 
     original = serializers.PrimaryKeyRelatedField(
         queryset=WeeklyFitnessPlan.objects.all(),
@@ -355,7 +355,7 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
             WeeklyFitnessPlan._meta.get_field('is_published').name,
             WeeklyFitnessPlan._meta.get_field('is_archived').name,
             
-            'workouts',
+            'weekly_fitness_plan_workouts',
             'created_by',
             'original',
         ]
@@ -373,7 +373,7 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['workouts'] = WeeklyFitnessPlanWorkoutSerializer(instance.weekly_fitness_plan_workouts, many=True).data
+        data['weekly_fitness_plan_workouts'] = WeeklyFitnessPlanWorkoutSerializer(instance.weekly_fitness_plan_workouts, many=True).data
         data['created_by'] = CustomUserPreviewSerializer(instance.created_by).data
         data['original'] = instance.original.id if instance.original else ""
         return data
@@ -403,12 +403,12 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
 
 
     def create(self, validated_data):
-        plan_workouts_data = validated_data.pop('workouts', [])
+        plan_workouts_data = validated_data.pop('weekly_fitness_plan_workouts', [])
 
         plan = WeeklyFitnessPlan.objects.create(**validated_data)
 
         for pw_data in plan_workouts_data:
-            workout_id = pw_data.get('workout').id
+            workout_id = pw_data.pop('workout').id
 
             workout = Workout.objects.filter(id=workout_id).first()
             if not workout_id:
@@ -423,16 +423,15 @@ class WeeklyFitnessPlanSerializer(serializers.ModelSerializer):
                 **pw_data
             )
 
-        return workout
+        return plan
 
     def update(self, instance, validated_data):
-        plan_workouts_data = validated_data.pop('workouts', [])
+        plan_workouts_data = validated_data.pop('weekly_fitness_plan_workouts', [])
 
         # Обновляем Workout
         super().update(instance, validated_data)
 
         if plan_workouts_data:
-            # Удаляем старые WorkoutExercise
             instance.workouts.all().delete()
 
             for pw_data in plan_workouts_data:

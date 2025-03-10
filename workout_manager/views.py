@@ -25,7 +25,7 @@ from workout_manager.serializers import (
 )
 from users.models import CustomUser
 from rest_framework.parsers import MultiPartParser, FormParser
-from workout_manager.Services import originality_service
+from workout_manager.Services import originality_service, published_service
 
 
 class ExercisePublishedView(APIView):
@@ -396,8 +396,7 @@ class WorkoutPublishDetailView(APIView):
         is_original = originality_service.get_originality(count_all, count_not_original)
 
         if is_original:
-            workout.is_published = True
-            workout.save()
+            published_service.publish_workout(workout.id)
 
             return Response(
                 {"message": "Workout published successfully."},
@@ -634,8 +633,7 @@ class WeeklyFitnessPlanPublishDetailView(APIView):
         is_original = originality_service.get_originality(count_all, count_not_original)
 
         if is_original:
-            plan.is_published = True
-            plan.save()
+            published_service.publish_plan(plan.id)
 
             return Response(
                 {"message": "Plan published successfully."},
